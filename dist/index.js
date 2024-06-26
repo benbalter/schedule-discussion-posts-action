@@ -29900,6 +29900,24 @@ exports.Draft = Draft;
 
 /***/ }),
 
+/***/ 4756:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.Linter = void 0;
+class Linter {
+    path;
+    constructor(path) {
+        this.path = path;
+    }
+}
+exports.Linter = Linter;
+
+
+/***/ }),
+
 /***/ 399:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -29933,6 +29951,7 @@ exports.run = run;
 const core = __importStar(__nccwpck_require__(2186));
 const fs = __importStar(__nccwpck_require__(7147));
 const draft_1 = __nccwpck_require__(3351);
+const linter_1 = __nccwpck_require__(4756);
 function getDrafts() {
     const files = fs.readdirSync('./');
     let drafts = files.filter(file => file.endsWith('.md'));
@@ -29940,23 +29959,47 @@ function getDrafts() {
     core.info(`Found ${drafts.length} drafts`);
     return drafts.map(file => new draft_1.Draft(file));
 }
+function getChangedFiles() {
+    const json = core.getInput('changed_files');
+    return JSON.parse(json);
+}
+function lint() {
+    const changedFiles = getChangedFiles();
+    if (changedFiles.length === 0) {
+        core.info('No Markdown files changed. Skipping linting.');
+        return;
+    }
+    for (const file of changedFiles) {
+        console.log(file);
+        const linter = new linter_1.Linter(file);
+    }
+}
+async function cron() {
+    const drafts = getDrafts();
+    for (const draft of drafts) {
+        if (draft.date === undefined) {
+            core.info(`Skipping draft ${draft.path} with no date`);
+            continue;
+        }
+        if (!draft.isPast) {
+            core.info(`Skipping draft ${draft.path} with date ${draft.date} as it is in the future`);
+            continue;
+        }
+        if (await draft.isPublished()) {
+            core.info(`draft ${draft.title} is already published`);
+            continue;
+        }
+        await draft.publish();
+    }
+}
 async function run() {
     try {
-        const drafts = getDrafts();
-        for (const draft of drafts) {
-            if (draft.date === undefined) {
-                core.info(`Skipping draft ${draft.path} with no date`);
-                continue;
-            }
-            if (!draft.isPast) {
-                core.info(`Skipping draft ${draft.path} with date ${draft.date} as it is in the future`);
-                continue;
-            }
-            if (await draft.isPublished()) {
-                core.info(`draft ${draft.title} is already published`);
-                continue;
-            }
-            await draft.publish();
+        const linting = core.getInput('lint');
+        if (linting === 'true') {
+            lint();
+        }
+        else {
+            cron();
         }
     }
     catch (error) {

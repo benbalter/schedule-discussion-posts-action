@@ -21,8 +21,9 @@ jobs:
             **.md
 
       - name: Lint markdown files
+        uses: ./
         if: steps.changed-markdown-files.outputs.test_any_changed == 'true'
-        env:
-          ALL_CHANGED_FILES:
+        with:
+          lint: true
+          changed_files:
             ${{ steps.changed-markdown-files.outputs.all_changed_files }}
-        run: node dist/lint.js
