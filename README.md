@@ -26,6 +26,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: benbalter/schedule-discussion-post-action@main
+        with:
+          discussion_token: ${{ secrets.DISCUSSION_TOKEN }}
 ```
 
 ## Add a Personal Access Token to the repository secrets
@@ -49,10 +51,6 @@ Access Token:
 Note: You can optionally create a legacy PAT which would not have an expiration
 date, but that would grant discussion read/write access to all repositories that
 the author has access to.
-
-Note 2: By default the action looks for `secrets.GITHUB_TOKEN` and
-`secrets.DISCUSSION_TOKEN`. You can customize those variables by passing them as
-`repo_token` and `discussion_token` `with` arguments to the action.
 
 Pro-tip: Set a calendar reminder to roll the token prior to the expiration date.
 
