@@ -20,6 +20,9 @@ on:
   schedule:
     - cron: '0 0 * * *'
 
+permissions:
+  contents: write
+
 jobs:
   schedule-discussion-post:
     runs-on: ubuntu-latest
