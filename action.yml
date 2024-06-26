@@ -5,3 +5,12 @@ author: Ben Balter
 runs:
   using: node20
   main: dist/index.js
+inputs:
+  repo_token:
+    description: The default GitHub Actions token
+    required: false
+    default: ${{ secrets.GITHUB_TOKEN }}
+  discussion_token:
+    description: A PAT with `discussion:write` scope for the target repository
+    default: ${{ secrets.DISCUSSION_TOKEN }}
+    required: false
