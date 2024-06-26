@@ -4,7 +4,7 @@ This action will create a discussion post in a repository at a scheduled time.
 
 ## Usage
 
-Setting up the action requires three stess:
+Setting up the action requires three steps:
 
 - 1. [Set up this action](#set-up-this-action)
   1. [Add a Personal Access Token to the repository secrets](#add-a-personal-access-token-to-the-repository-secrets)
