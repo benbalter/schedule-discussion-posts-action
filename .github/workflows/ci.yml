@@ -59,7 +59,3 @@ jobs:
         with:
           discussion_token: 'asdf123'
           repo_token: 'asdf456'
-
-      - name: Print Output
-        id: output
-        run: echo "${{ steps.test-action.outputs.time }}"
