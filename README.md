@@ -4,13 +4,33 @@ This action will create a discussion post in a repository at a scheduled time.
 
 ## Usage
 
-Setting up the action requires three steps:
+Setting up the action requires three steps (described in detail below):
 
-- 1. [Set up this action](#set-up-this-action)
-  1. [Add a Personal Access Token to the repository secrets](#add-a-personal-access-token-to-the-repository-secrets)
-  1. [Create a discussion post](#create-a-discussion-post)
+1. Set up this action
+1. Add a Personal Access Token to the repository secrets
+1. Create one or more draft discussion posts
 
-## Set up this action
+## Concepts
+
+The Action is intended to be used with two or more repos:
+
+- The first repository is the "**source**" repository. This repository contains
+  the GitHub Action configuration as well as one or more "draft" discussion
+  posts. You'll likely want to lock this repo down to those that are part of the
+  drafting process.
+- The second repository (or third, or forth) is the "**target**" repository.
+  This repository is where the discussion posts will be created. The repository
+  can be set per draft, and will likely have a wider audience (e.g., those that
+  you want to be able to read the published discussion posts)
+
+Draft discussion posts live as `.md` files in the root of the source repository.
+When the action runs (on a regular basis), it will look for any draft posts that
+are scheduled to be published (publication date in the past) and will create a
+coresponding discussion post in the target repository. You can schedule as many
+draft discussion posts as you'd like. Once published, the draft post will be
+deleted. to keep things tidy in the source repo.
+
+## Step 1: Set up this action
 
 Create a `.github/workflows/schedule-discussion-post.yml` file in your
 repository with the following content:
@@ -35,7 +55,7 @@ jobs:
           discussion_token: ${{ secrets.DISCUSSION_TOKEN }}
 ```
 
-## Add a Personal Access Token to the repository secrets
+## Step 2: Add a Personal Access Token to the repository secrets
 
 For the Action to work, the intended author will need to create a Personal
 Access Token:
@@ -59,12 +79,12 @@ the author has access to.
 
 Pro-tip: Set a calendar reminder to roll the token prior to the expiration date.
 
-## Create a discussion post
+## Step 3: Create a draft discussion post
 
 Discussion posts start as `.md` files in the root of the repository where you
-set up the Action. You can schedule as many posts as you'd like. Posts are
-standard Markdown files, with a few extra "front matter" fields at the top.
-Here's an example:
+set up the Action (the source repository). You can schedule as many posts as
+you'd like. Posts are standard Markdown files, with a few extra "front matter"
+fields at the top. Here's an example:
 
 ```markdown
 ---
@@ -75,8 +95,11 @@ category: General
 labels: announcement, engineering
 ---
 
-Body of the post here
+Body of the post here in standard Markdown.
 ```
+
+Note: You do not (and should not) include the title in the body of the draft as
+an H1. Instead, add it to the front matter so that it can be set appropriately.
 
 The following front matter fields are supported:
 
@@ -84,8 +107,11 @@ The following front matter fields are supported:
 - `date` (required): The date and time to post the discussion post. The Action
   will do its best to parse most common formats. When in doubt, ISO 8601 is your
   friend.
-- `repository` (required): The repository where the discussion post will be
-  created. Must be in the format `owner/repo`.
-- `category`: The category of the discussion post.
-- `labels`: A comma-separated list of labels to apply to the discussion post.
-  (optional)
+- `repository` (required): The target repository where the discussion post will
+  be created. Must be in the format `owner/repo`.
+- `category` (required): The category of the discussion post.
+- `labels` (optional): A comma-separated list of labels to apply to the
+  discussion post.
+
+Note: Setting labels is not yet implemented due to restrictions with the GitHub
+API.
