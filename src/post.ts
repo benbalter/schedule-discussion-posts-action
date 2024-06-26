@@ -4,10 +4,12 @@ import { parse } from 'yaml'
 import { octokit } from './octokit'
 import { Repository } from './repo'
 import type { GraphQlQueryResponseData } from '@octokit/graphql'
+import * as yaml from 'yaml'
+import * as chrono from 'chrono-node'
 
 const createMutation = `
-  mutation($repositoryId: ID!, $body: String!, $title: String! ) {
-    createDiscussion(input: {repositoryId: $repositoryId, body: $body, title: $title}) {
+  mutation($repositoryId: ID!, $body: String!, $title: String!, $categoryId: ID! ) {
+    createDiscussion(input: {repositoryId: $repositoryId, body: $body, title: $title, categoryId: $categoryId}) {
       discussion {
         id
         url
@@ -38,31 +40,64 @@ export class Post {
   id: string | undefined
   labels: string[] = []
   url: string | undefined
-  // TODO Category
+  category: string | undefined
+
+  requiredFrontMatter = ['title', 'repository', 'date', 'category']
 
   constructor(path: string) {
+    console.info(`Reading post: ${path}`)
+
     this.path = path
     this.contents = this.readContents()
     const parsed = this.parseFrontMatter()
 
     if (parsed === undefined) {
+      core.setFailed(`Failed to parse front matter in file: ${this.path}`)
       return
     }
 
+    for (const field of this.requiredFrontMatter) {
+      if (parsed[field] === undefined) {
+        core.setFailed(`Post ${this.path} is missing required field: ${field}`)
+        return
+      }
+    }
+
     const repoParts = parsed.repository.split('/')
+    const parsedDate = chrono.parseDate(parsed.date)
+
+    if (parsedDate === null) {
+      core.setFailed(`Failed to parse date in file: ${this.path}`)
+      return
+    }
+    core.debug(`Parsed date: ${parsedDate}`)
+
     this.repository = new Repository(repoParts[0], repoParts[1])
     this.title = parsed.title
     this.body = parsed.body
-    this.date = new Date(parsed.date)
+    this.date = parsedDate
     this.path = path
-    this.labels = parsed.labels.split(',').map((label: string) => label.trim())
+    this.category = parsed.category
+
+    if (parsed.labels !== undefined) {
+      this.labels = parsed.labels
+        .split(',')
+        .map((label: string) => label.trim())
+    } else {
+      this.labels = []
+    }
+
+    console.info(
+      `Front Matter for post ${this.path}: \n${yaml.stringify(parsed)}`
+    )
   }
 
-  readContents() {
+  readContents(): string | undefined {
     try {
+      core.debug(`Reading file: ${this.path}`)
       return fs.readFileSync(this.path, 'utf8')
     } catch (error) {
-      core.setFailed(`Failed to read file: ${this.path}`)
+      core.setFailed(`Failed to read file: ${this.path} (${error})`)
     }
   }
 
@@ -83,7 +118,9 @@ export class Post {
     return { ...parsed, body }
   }
 
-  async delete() {
+  async delete(): Promise<void> {
+    core.debug(`Deleting post: ${this.path}`)
+
     if (this.repository === undefined) {
       core.setFailed('Repository is undefined. Cannot delete post.')
       return
@@ -102,7 +139,7 @@ export class Post {
         ? response.data[0].sha
         : response.data.sha
     } catch (error) {
-      core.setFailed(`Failed to get SHA for file: ${this.path}`)
+      core.setFailed(`Failed to get SHA for file: ${this.path} (${error})`)
       return
     }
 
@@ -110,16 +147,20 @@ export class Post {
     
     The post has been published as ${this.url}`
 
-    return octokit.rest.repos.deleteFile({
-      owner: this.repository.owner,
-      repo: this.repository.name,
-      path: this.path,
-      message,
-      sha
-    })
+    try {
+      octokit.rest.repos.deleteFile({
+        owner: this.repository.owner,
+        repo: this.repository.name,
+        path: this.path,
+        message,
+        sha
+      })
+    } catch (error) {
+      core.setFailed(`Failed to delete file: ${this.path} (${error})`)
+    }
   }
 
-  async addLabels() {
+  async addLabels(): Promise<void> {
     if (this.repository === undefined) {
       core.setFailed('Repository is undefined. Cannot set labels.')
       return
@@ -138,23 +179,42 @@ export class Post {
 
     const variables = {
       discussionId: this.id,
-      labelIds: labelIds
+      labelIds
     }
 
     try {
       core.info(`Setting labels for post ${this.title} as ${this.labels}`)
       await octokit.graphql(labelMutation, variables)
     } catch (error) {
-      core.setFailed(`Failed to set labels for post: ${this.title}`)
+      core.setFailed(`Failed to set labels for post: ${this.title} (${error})`)
     }
   }
 
-  async publish() {
+  async publish(): Promise<string | undefined> {
+    if (this.category === undefined) {
+      core.setFailed('Category is undefined. Cannot publish post.')
+      return
+    }
+
+    const categoryId = await this.repository?.getCategoryId(this.category)
+    if (categoryId === undefined) {
+      return
+    }
+    core.debug(`Category ID: ${categoryId}`)
+
+    const repoId = await this.repository?.getId()
+    if (repoId === undefined) {
+      core.setFailed('Repository ID is undefined. Cannot publish post.')
+      return
+    }
+    core.debug(`Repository ID: ${repoId}`)
+
     core.info(`Publishing post: ${this.title}`)
     const variables = {
-      repositoryId: this.repository,
+      repositoryId: repoId,
       title: this.title,
-      body: this.body
+      body: this.body,
+      categoryId
     }
     const result: GraphQlQueryResponseData = await octokit.graphql(
       createMutation,
@@ -175,15 +235,15 @@ export class Post {
     return this.id
   }
 
-  get isFuture() {
+  get isPast(): boolean {
     if (this.date === undefined) {
       return false
     }
 
-    return this.date > new Date()
+    return this.date < new Date()
   }
 
-  async isPublished() {
+  async isPublished(): Promise<boolean | undefined> {
     if (this.repository === undefined) {
       core.setFailed(
         'Repository is undefined. Cannot check if post is published.'
@@ -201,13 +261,15 @@ export class Post {
       return
     }
 
-    const discussionId = await this.repository.findDiscussion(
+    const discussion = await this.repository.findDiscussion(
       this.title,
       this.date
     )
-    if (discussionId === undefined) {
+    if (discussion === undefined) {
       return false
     }
+
+    this.id = discussion.id
 
     return true
   }

@@ -1,6 +1,6 @@
+import 'dotenv/config'
 import * as github from '@actions/github'
 import * as core from '@actions/core'
-import 'dotenv/config'
 
 const discussionToken = core.getInput('discussion_token')
 const repoToken = core.getInput('repo_token')
