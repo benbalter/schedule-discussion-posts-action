@@ -44,8 +44,8 @@ jobs:
         id: npm-ci-test
         run: npm run ci-test
         env:
-          input_discussion_token: 'asdf123'
-          input_repo_token: 'asdf456'
+          inputs_discussion_token: 'asdf123'
+          inputs_repo_token: 'asdf456'
 
   test-action:
     name: GitHub Actions Test
