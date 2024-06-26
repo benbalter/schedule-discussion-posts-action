@@ -13,3 +13,11 @@ inputs:
   discussion_token:
     description: A PAT with `discussion:write` scope for the target repository
     required: true
+  lint:
+    description: Whether to lint the draft markdown files
+    required: false
+    default: 'false'
+  changed_files:
+    description: A JSON-encoded list of paths to lint
+    required: false
+    default: ''
