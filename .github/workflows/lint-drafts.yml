@@ -1,0 +1,28 @@
+name: Lint drafts
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  changed_files:
+    runs-on: ubuntu-latest # windows-latest || macos-latest
+    name: Test changed-files
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get all changed markdown files
+        id: changed-markdown-files
+        uses: tj-actions/changed-files@v44
+        with:
+          json: true
+          files: |
+            **.md
+
+      - name: Lint markdown files
+        if: steps.changed-markdown-files.outputs.test_any_changed == 'true'
+        env:
+          ALL_CHANGED_FILES:
+            ${{ steps.changed-markdown-files.outputs.all_changed_files }}
+        run: node dist/lint.js
