@@ -1,21 +1,22 @@
 {
-  "name": "typescript-action",
-  "description": "GitHub Actions TypeScript template",
+  "name": "Schedule Discussion Post Action",
+  "description": "This action will create a discussion post in a repository at a scheduled time.",
   "version": "0.0.0",
-  "author": "",
+  "author": "Ben Balter",
   "private": true,
-  "homepage": "https://github.com/actions/typescript-action",
+  "homepage": "https://github.com/benbalter/schedule-discussion-posts-action",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/actions/typescript-action.git"
+    "url": "git+https://github.com/benbalter/schedule-discussion-posts-action.git"
   },
   "bugs": {
-    "url": "https://github.com/actions/typescript-action/issues"
+    "url": "https://github.com/benbalter/schedule-discussion-posts-action/issues"
   },
   "keywords": [
     "actions",
-    "node",
-    "setup"
+    "discussions",
+    "chron",
+    "schedule"
   ],
   "exports": {
     ".": "./dist/index.js"
