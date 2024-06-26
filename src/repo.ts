@@ -96,7 +96,7 @@ export class Repository {
 
     const categories: { name: string; id: string }[] =
       response.repository.discussionCategories.nodes
-    const category = categories.find(category => category.name === name)
+    const category = categories.find(cat => cat.name === name)
 
     if (category === undefined) {
       core.setFailed(`Failed to find category: ${name}`)

@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as core from '@actions/core'
 import { parse } from 'yaml'
-import { octokit } from './octokit'
+import { octokit, repoOctokit } from './octokit'
 import { Repository } from './repo'
 import type { GraphQlQueryResponseData } from '@octokit/graphql'
 import * as yaml from 'yaml'
@@ -30,7 +30,7 @@ const labelMutation = `
   }
 `
 
-export class Post {
+export class Draft {
   contents: string | undefined
   repository: Repository | undefined
   title: string | undefined
@@ -45,7 +45,7 @@ export class Post {
   requiredFrontMatter = ['title', 'repository', 'date', 'category']
 
   constructor(path: string) {
-    console.info(`Reading post: ${path}`)
+    console.info(`Reading draft: ${path}`)
 
     this.path = path
     this.contents = this.readContents()
@@ -58,7 +58,7 @@ export class Post {
 
     for (const field of this.requiredFrontMatter) {
       if (parsed[field] === undefined) {
-        core.setFailed(`Post ${this.path} is missing required field: ${field}`)
+        core.setFailed(`Draft ${this.path} is missing required field: ${field}`)
         return
       }
     }
@@ -67,20 +67,20 @@ export class Post {
     const parsedDate = chrono.parseDate(parsed.date)
 
     if (parsedDate === null) {
-      core.setFailed(`Failed to parse date in file: ${this.path}`)
+      core.setFailed(`Failed to parse date in draft: ${this.path}`)
       return
     }
     core.debug(`Parsed date: ${parsedDate}`)
 
     this.repository = new Repository(repoParts[0], repoParts[1])
     this.title = parsed.title
-    this.body = parsed.body
+    this.body = parsed.body.trim()
     this.date = parsedDate
     this.path = path
     this.category = parsed.category
 
     if (parsed.labels !== undefined) {
-      this.labels = parsed.labels
+      this.labels = (parsed.label || parsed.labels)
         .split(',')
         .map((label: string) => label.trim())
     } else {
@@ -88,16 +88,16 @@ export class Post {
     }
 
     console.info(
-      `Front Matter for post ${this.path}: \n${yaml.stringify(parsed)}`
+      `Front Matter for draft ${this.path}: \n${yaml.stringify(parsed)}`
     )
   }
 
   readContents(): string | undefined {
     try {
-      core.debug(`Reading file: ${this.path}`)
+      core.debug(`Reading draft: ${this.path}`)
       return fs.readFileSync(this.path, 'utf8')
     } catch (error) {
-      core.setFailed(`Failed to read file: ${this.path} (${error})`)
+      core.setFailed(`Failed to read draft: ${this.path} (${error})`)
     }
   }
 
@@ -108,7 +108,7 @@ export class Post {
 
     const frontMatter = this.contents.match(/^---\n([\s\S]+?)\n---\n/)
     if (!frontMatter) {
-      core.setFailed(`Failed to parse front matter in file: ${this.path}`)
+      core.setFailed(`Failed to parse front matter in draft: ${this.path}`)
       return
     }
 
@@ -119,17 +119,17 @@ export class Post {
   }
 
   async delete(): Promise<void> {
-    core.debug(`Deleting post: ${this.path}`)
+    core.debug(`Deleting draft: ${this.path}`)
 
     if (this.repository === undefined) {
-      core.setFailed('Repository is undefined. Cannot delete post.')
+      core.setFailed('Repository is undefined. Cannot delete draft.')
       return
     }
 
     let sha: string
 
     try {
-      const response = await octokit.rest.repos.getContent({
+      const response = await repoOctokit.rest.repos.getContent({
         owner: this.repository.owner,
         repo: this.repository.name,
         path: this.path
@@ -138,8 +138,10 @@ export class Post {
       sha = Array.isArray(response.data)
         ? response.data[0].sha
         : response.data.sha
+
+      core.debug(`SHA for draft: ${this.path} is ${sha}`)
     } catch (error) {
-      core.setFailed(`Failed to get SHA for file: ${this.path} (${error})`)
+      core.setFailed(`Failed to get SHA for draft: ${this.path} (${error})`)
       return
     }
 
@@ -148,15 +150,16 @@ export class Post {
     The post has been published as ${this.url}`
 
     try {
-      octokit.rest.repos.deleteFile({
+      await repoOctokit.rest.repos.deleteFile({
         owner: this.repository.owner,
         repo: this.repository.name,
         path: this.path,
         message,
         sha
       })
+      core.debug(`Deleted draft: ${this.path}`)
     } catch (error) {
-      core.setFailed(`Failed to delete file: ${this.path} (${error})`)
+      core.setFailed(`Failed to delete draft: ${this.path} (${error})`)
     }
   }
 
@@ -177,6 +180,12 @@ export class Post {
       })
     )
 
+    core.warning(
+      `Setting labels is not yet implemented. Would have set labels: ${this.labels}`
+    )
+    return
+
+    // eslint-disable-next-line no-unreachable
     const variables = {
       discussionId: this.id,
       labelIds

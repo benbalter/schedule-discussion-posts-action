@@ -1,37 +1,37 @@
 import * as core from '@actions/core'
 import * as fs from 'fs'
-import { Post } from './post'
+import { Draft } from './draft'
 
-function getPosts(): Post[] {
+function getDrafts(): Draft[] {
   const files = fs.readdirSync('./')
-  let posts = files.filter(file => file.endsWith('.md'))
-  posts = posts.filter(file => !file.match(/README\.md/i))
-  core.info(`Found ${posts.length} posts`)
-  return posts.map(file => new Post(file))
+  let drafts = files.filter(file => file.endsWith('.md'))
+  drafts = drafts.filter(file => !file.match(/README\.md/i))
+  core.info(`Found ${drafts.length} drafts`)
+  return drafts.map(file => new Draft(file))
 }
 
 export async function run(): Promise<void> {
   try {
-    const posts = getPosts()
-    for (const post of posts) {
-      if (post.date === undefined) {
-        core.info(`Skipping post ${post.path} with no date`)
+    const drafts = getDrafts()
+    for (const draft of drafts) {
+      if (draft.date === undefined) {
+        core.info(`Skipping draft ${draft.path} with no date`)
         continue
       }
 
-      if (!post.isPast) {
+      if (!draft.isPast) {
         core.info(
-          `Skipping post ${post.path} with date ${post.date} as it is in the future`
+          `Skipping draft ${draft.path} with date ${draft.date} as it is in the future`
         )
         continue
       }
 
-      if (await post.isPublished()) {
-        core.info(`Post ${post.title} is already published`)
+      if (await draft.isPublished()) {
+        core.info(`draft ${draft.title} is already published`)
         continue
       }
 
-      await post.publish()
+      await draft.publish()
     }
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
