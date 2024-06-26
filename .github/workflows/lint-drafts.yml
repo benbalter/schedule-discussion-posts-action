@@ -22,7 +22,7 @@ jobs:
 
       - name: Lint markdown files
         uses: ./
-        if: steps.changed-markdown-files.outputs.test_any_changed == 'true'
+        if: steps.changed-markdown-files.outputs.any_changed == 'true'
         with:
           lint: true
           changed_files:
