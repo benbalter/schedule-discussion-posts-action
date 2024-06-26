@@ -5,8 +5,8 @@ This action will create a discussion post in a repository at a scheduled time.
 ## Usage
 
 1. Set up this action (see below)
-2. Add a Personal Access Token to the repository secrets (optional, see below)
-3. Create one or more discussion posts (see below)
+1. Add a Personal Access Token to the repository secrets (optional, see below)
+1. Create one or more discussion posts (see below)
 
 ## Set up this action
 
@@ -36,7 +36,7 @@ jobs:
 For the Action to work, the intended author will need to create a Personal
 Access Token:
 
-1. Navigate to https://github.com/settings/tokens?type=beta.
+1. Navigate to [`github.com/settings/tokens`](https://github.com/settings/tokens?type=beta).
 1. Click "Generate new token".
 1. Give the token a descriptive name.
 1. Set a long expiration date (e.g., 1 year)
