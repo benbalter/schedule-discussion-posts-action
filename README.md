@@ -69,6 +69,8 @@ Here's an example:
 title: An important post
 date: 2021-10-01T12:00:00Z
 repositotry: github/schedule-discussion-post-action
+category: General
+labels: announcement, engineering
 ---
 
 Body of the post here
@@ -77,9 +79,11 @@ Body of the post here
 The following front matter fields are supported:
 
 - `title` (required): The title of the discussion post
-- `date` (required): The date and time to post the discussion post. Must be in
-  ISO 8601 format.
+- `date` (required): The date and time to post the discussion post. The Action
+  will do its best to parse most common formats. When in doubt, ISO 8601 is your
+  friend.
 - `repository` (required): The repository where the discussion post will be
   created. Must be in the format `owner/repo`.
-- labels: A list of labels to apply to the discussion post. Comma separated
-  list.
+- `category`: The category of the discussion post.
+- `labels`: A comma-separated list of labels to apply to the discussion post.
+  (optional)
