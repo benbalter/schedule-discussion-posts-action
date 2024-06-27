@@ -1,8 +1,21 @@
-import { sandbox } from '../src/octokit'
+import { sandbox, octokit } from '../src/octokit'
 import { Draft } from '../src/draft'
-import { mockGraphQL } from './fixtures'
+import {
+  mockGraphQL,
+  mockLabel,
+  mockRepo,
+  mockCreateDiscussion,
+  mockCategory,
+  mockLabelCreation,
+  mockFileDeletion,
+  mockPost
+} from './fixtures'
 
 describe('draft', () => {
+  beforeEach(() => {
+    sandbox.restore()
+  })
+
   it('should read the contents', () => {
     const draft = new Draft('./__tests__/fixtures/draft.md')
     expect(draft.contents).toBeDefined()
@@ -35,21 +48,7 @@ describe('draft', () => {
   })
 
   it('should delete', async () => {
-    const getMock = sandbox.mock(
-      {
-        url: 'https://api.github.com/repos/owner/repo/contents/.%2F__tests__%2Ffixtures%2Fdraft.md',
-        method: 'GET'
-      },
-      { sha: 'sha123' }
-    )
-    const deleteMock = sandbox.mock(
-      {
-        url: 'https://api.github.com/repos/owner/repo/contents/.%2F__tests__%2Ffixtures%2Fdraft.md',
-        //TODO: Validate SHA and message
-        method: 'DELETE'
-      },
-      200
-    )
+    const { getMock, deleteMock } = mockFileDeletion()
     const draft = new Draft('./__tests__/fixtures/draft.md')
     await draft.delete()
     expect(getMock.called()).toBe(true)
@@ -57,20 +56,8 @@ describe('draft', () => {
   })
 
   it('Adds labels', async () => {
-    sandbox.mock('https://api.github.com/repos/owner/repo/labels/question', {
-      node_id: 'addlabel123'
-    })
-
-    const data = {
-      data: {
-        addLabelsToLabelable: {
-          discussion: {
-            number: 1
-          }
-        }
-      }
-    }
-    const mock = mockGraphQL(data, 'addLabels', 'addlabel123')
+    mockLabel()
+    const mock = mockLabelCreation()
     const draft = new Draft('./__tests__/fixtures/draft.md')
     draft.id = 'id123'
 
@@ -79,52 +66,55 @@ describe('draft', () => {
   })
 
   it('Publishes', async () => {
-    sandbox.restore()
+    const mock = mockCreateDiscussion()
+    mockCategory()
+    mockRepo()
+    mockLabel()
+    const labelMock = mockLabelCreation()
+    const { getMock, deleteMock } = mockFileDeletion()
 
-    const postData = {
-      data: {
-        createDiscussion: {
-          discussion: {
-            id: 'id123',
-            url: 'https://github.com/owner/repo/discussions/1'
-          }
+    const draft = new Draft('./__tests__/fixtures/draft.md')
+    const id = await draft.publish()
+    expect(mock.called()).toBe(true)
+    expect(labelMock.called()).toBe(true)
+    expect(deleteMock.called()).toBe(true)
+    expect(getMock.called()).toBe(true)
+    expect(id).toBe('id123')
+  })
+
+  it("Knows when it's published", async () => {
+    const draft = new Draft('./__tests__/fixtures/draft.md')
+    const mock = mockPost()
+    const isPublished = await draft.isPublished()
+    expect(mock.called()).toBe(true)
+    expect(isPublished).toBe(true)
+  })
+
+  it("Knows when it's not published", async () => {
+    const draft = new Draft('./__tests__/fixtures/future.md')
+    const mock = mockPost({ nodes: [] })
+    const isPublished = await draft.isPublished()
+    expect(mock.called()).toBe(true)
+    expect(isPublished).toBe(false)
+  })
+
+  it('uses the default octokit when no author is provided', async () => {
+    const draft = new Draft('./__tests__/fixtures/draft.md')
+    expect(draft.octokit).toBeDefined()
+    expect(draft.octokit).toBe(octokit)
+
+    const mock = sandbox.mock(
+      {
+        url: 'https://api.github.com/repos/owner/repo/labels/question',
+        headers: {
+          authorization: 'token TOKEN'
         }
+      },
+      {
+        node_id: 'addlabel123'
       }
-    }
-
-    // Mock the create mutation
-    const mock = mockGraphQL(postData, 'publish', 'createDiscussion')
-
-    // Mock the query to get the discussion category ID
-    const categoryData = {
-      data: {
-        repository: {
-          discussionCategories: {
-            nodes: [
-              { id: '123', name: 'General' },
-              { id: '456', name: 'Other' }
-            ]
-          }
-        }
-      }
-    }
-    mockGraphQL(
-      categoryData,
-      'repoDiscussionCategoryQuery',
-      'discussionCategories'
     )
 
-    // Mock the query to get the Repo ID
-    sandbox.mock('https://api.github.com/repos/owner/repo', {
-      node_id: 'id123'
-    })
-
-    // Mock the query to get the Label ID
-    sandbox.mock('https://api.github.com/repos/owner/repo/labels/question', {
-      node_id: 'publishLabel123'
-    })
-
-    //Mock the add label mutation
     const data = {
       data: {
         addLabelsToLabelable: {
@@ -134,63 +124,43 @@ describe('draft', () => {
         }
       }
     }
-    const labelMock = mockGraphQL(data, 'addLabelsOnPublish', 'publishLabel123')
+    mockGraphQL(data, 'addLabels', 'addlabel123')
+    draft.id = 'id123'
 
-    // Mock file deletion
-    const getMock = sandbox.mock(
-      {
-        url: 'https://api.github.com/repos/owner/repo/contents/.%2F__tests__%2Ffixtures%2Fdraft.md',
-        method: 'GET'
-      },
-      { sha: 'sha123' }
-    )
-    const deleteMock = sandbox.mock(
-      {
-        url: 'https://api.github.com/repos/owner/repo/contents/.%2F__tests__%2Ffixtures%2Fdraft.md',
-        //TODO: Validate SHA and message
-        method: 'DELETE'
-      },
-      200
-    )
-
-    const draft = new Draft('./__tests__/fixtures/draft.md')
-    const id = await draft.publish()
+    await draft.addLabels()
     expect(mock.called()).toBe(true)
-    expect(labelMock.called()).toBe(true)
-    expect(getMock.called()).toBe(true)
-    expect(deleteMock.called()).toBe(true)
-    expect(id).toBe('id123')
   })
 
-  it("Knows when it's published", async () => {
-    const draft = new Draft('./__tests__/fixtures/draft.md')
-    const postID = 'post123'
-    const postUrl = 'https://github.com/owner./repo/discussions/1'
-    const responseData = {
+  it('uses the author octokit when an author is provided', async () => {
+    process.env['INPUT_DISCUSSION_TOKEN_HUBOT'] = 'author_token'
+    const draft = new Draft('./__tests__/fixtures/author.md')
+    expect(draft.octokit).toBeDefined()
+
+    const mock = sandbox.mock(
+      {
+        url: 'https://api.github.com/repos/owner/repo/labels/question',
+        headers: {
+          authorization: 'token author_token'
+        }
+      },
+      {
+        node_id: 'addlabel123'
+      }
+    )
+
+    const data = {
       data: {
-        search: {
-          nodes: [{ id: postID, url: postUrl }]
+        addLabelsToLabelable: {
+          discussion: {
+            number: 1
+          }
         }
       }
     }
-    const mock = mockGraphQL(responseData, 'postIsPublished', draft.title)
-    const isPublished = await draft.isPublished()
-    expect(mock.called()).toBe(true)
-    expect(isPublished).toBe(true)
-  })
+    mockGraphQL(data, 'addLabels', 'addlabel123')
+    draft.id = 'id123'
 
-  it("Knows when it's not published", async () => {
-    const draft = new Draft('./__tests__/fixtures/future.md')
-    const responseData = {
-      data: {
-        search: {
-          nodes: []
-        }
-      }
-    }
-    const mock = mockGraphQL(responseData, 'postIsNotPublished', draft.title)
-    const isPublished = await draft.isPublished()
+    await draft.publish()
     expect(mock.called()).toBe(true)
-    expect(isPublished).toBe(false)
   })
 })

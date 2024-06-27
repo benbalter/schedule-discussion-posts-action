@@ -1,4 +1,4 @@
-import { octokit, repoOctokit } from './octokit'
+import { octokit, octokitForAuthor } from './octokit'
 import * as core from '@actions/core'
 import type { GraphQlQueryResponseData } from '@octokit/graphql'
 
@@ -31,16 +31,26 @@ const discussionCategoryQuery = `
 export class Repository {
   owner: string
   name: string
+  octokit: typeof octokit
 
-  constructor(owner: string, name: string) {
+  constructor(owner: string, name: string, authAs?: string) {
     this.owner = owner
     this.name = name
+    this.octokit = octokit
+
+    if (authAs !== undefined && authAs !== '') {
+      const authorOctokit = octokitForAuthor(authAs)
+
+      if (authorOctokit !== undefined) {
+        this.octokit = authorOctokit
+      }
+    }
   }
 
   async getLabelId(name: string): Promise<string | undefined> {
     try {
       core.debug(`Getting label: ${name}`)
-      const { data: label } = await octokit.rest.issues.getLabel({
+      const { data: label } = await this.octokit.rest.issues.getLabel({
         owner: this.owner,
         repo: this.name,
         name
@@ -60,7 +70,7 @@ export class Repository {
     const query = `repo:${this.owner}/${this.name} is:discussion in:title ${title} created:>=${formattedDate}`
     core.debug(`Searching for discussion: ${query}`)
     try {
-      const response: GraphQlQueryResponseData = await repoOctokit.graphql(
+      const response: GraphQlQueryResponseData = await this.octokit.graphql(
         searchQuery,
         { q: query }
       )
@@ -89,7 +99,7 @@ export class Repository {
       owner: this.owner,
       name: this.name
     }
-    const response: GraphQlQueryResponseData = await repoOctokit.graphql(
+    const response: GraphQlQueryResponseData = await this.octokit.graphql(
       discussionCategoryQuery,
       variables
     )
@@ -109,7 +119,7 @@ export class Repository {
   async getId(): Promise<string | undefined> {
     try {
       core.debug(`Getting repository: ${this.name}`)
-      const { data: repo } = await octokit.rest.repos.get({
+      const { data: repo } = await this.octokit.rest.repos.get({
         owner: this.owner,
         repo: this.name
       })

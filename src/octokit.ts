@@ -19,6 +19,16 @@ if (core.getInput('dry_run') === 'true' || process.env.NODE_ENV === 'test') {
   repoToken = 'TOKEN'
   core.info('Running in dry-run mode or test environment')
 } else {
+  // Yes, we could set { required: true } below, but this provides more
+  // human-friendly error messages.
+  for (const token of ['discussion_token', 'repo_token']) {
+    if (core.getInput(token) === '') {
+      core.setFailed(
+        `${token} is required. Pass as a "with" parameter in your workflow file.`
+      )
+    }
+  }
+
   discussionToken = core.getInput('discussion_token')
   repoToken = core.getInput('repo_token')
 }
@@ -28,3 +38,14 @@ export const octokit = github.getOctokit(discussionToken, options)
 
 // Octokit instance with the default Actions token for the current repo
 export const repoOctokit = github.getOctokit(repoToken, options)
+
+export function octokitForAuthor(author: string): undefined | typeof octokit {
+  const token = core.getInput(`discussion_token_${author}`)
+  if (token === '') {
+    core.setFailed(
+      `"discussion_token_${author}" is required. To post as ${author}.`
+    )
+    return
+  }
+  return github.getOctokit(token, options)
+}
