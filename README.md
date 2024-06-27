@@ -225,10 +225,10 @@ jobs:
       - uses: benbalter/schedule-discussion-post-action@main
         with:
           # The default token used when no author is specified
-          discussion_token: ${{ secrets.DISCUSSION_TOKEN }} 
+          discussion_token: ${{ secrets.DISCUSSION_TOKEN }}
 
           # The token to use when the author is hubot
-          discussion_token_hubot: ${{ secrets.DISCUSSION_TOKEN_HUBOT }} 
+          discussion_token_hubot: ${{ secrets.DISCUSSION_TOKEN_HUBOT }}
 ```
 
 You may add as many authors to a repository as you'd like, each with their own
