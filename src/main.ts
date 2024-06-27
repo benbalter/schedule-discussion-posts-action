@@ -13,11 +13,11 @@ function getDrafts(): Draft[] {
 function getChangedFiles(): Draft[] {
   const json = core.getInput('files')
   const paths: string[] = JSON.parse(json)
-  return paths.map(file => new Draft(file)
+  return paths.map(file => new Draft(file))
 }
 
 async function cron(): Promise<void> {
-  let drafts: Draft[];
+  let drafts: Draft[]
   const changed = core.getInput('changed')
   const dryRun = core.getInput('dry_run')
 
@@ -53,12 +53,7 @@ async function cron(): Promise<void> {
 
 export async function run(): Promise<void> {
   try {
-    const linting = core.getInput('lint')
-    if (linting === 'true') {
-      lint()
-    } else {
-      cron()
-    }
+    cron()
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
   }

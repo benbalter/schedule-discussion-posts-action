@@ -29708,7 +29708,7 @@ class Draft {
     labels = [];
     url;
     category;
-    requiredFrontMatter = ['title', 'repository', 'date', 'category'];
+    requiredFrontMatter = ['title', 'repository', 'date', 'category', 'body'];
     constructor(path) {
         console.info(`Reading draft: ${path}`);
         this.path = path;
@@ -29730,7 +29730,7 @@ class Draft {
             core.setFailed(`Failed to parse date in draft: ${this.path}`);
             return;
         }
-        core.debug(`Parsed date: ${parsedDate}`);
+        core.info(`${this.path} has date: ${parsedDate}`);
         this.repository = new repo_1.Repository(repoParts[0], repoParts[1]);
         this.title = parsed.title;
         this.body = parsed.body.trim();
@@ -29794,6 +29794,10 @@ class Draft {
         const message = `Delete ${this.path}
     
     The post has been published as ${this.url}`;
+        if (core.getInput('dry_run') === 'true') {
+            core.info(`Dry run enabled. Skipping deleting draft: ${this.path}`);
+            return;
+        }
         try {
             await octokit_1.repoOctokit.rest.repos.deleteFile({
                 owner: this.repository.owner,
@@ -29817,11 +29821,19 @@ class Draft {
             core.setFailed('Discussion ID is undefined. Cannot set labels.');
             return;
         }
+        if (this.labels.length === 0) {
+            core.info('No labels to set');
+            return;
+        }
         const labelIds = await Promise.all(this.labels.map(async (label) => {
             return await this.repository?.getLabelId(label);
         }));
         core.warning(`Setting labels is not yet implemented. Would have set labels: ${this.labels}`);
         return;
+        if (core.getInput('dry_run') === 'true') {
+            core.info('Dry run enabled. Skipping setting labels. Would have set: ${this.labels}');
+            return;
+        }
         // eslint-disable-next-line no-unreachable
         const variables = {
             discussionId: this.id,
@@ -29851,20 +29863,23 @@ class Draft {
             return;
         }
         core.debug(`Repository ID: ${repoId}`);
-        core.info(`Publishing post: ${this.title}`);
-        const variables = {
-            repositoryId: repoId,
-            title: this.title,
-            body: this.body,
-            categoryId
-        };
-        const result = await octokit_1.octokit.graphql(createMutation, variables);
-        core.info(`Published post: ${this.title} at ${result.createDiscussion.discussion.url}`);
-        this.id = result.createDiscussion.discussion.id;
-        this.url = result.createDiscussion.discussion.url;
-        if (this.labels.length > 0) {
-            await this.addLabels();
+        if (core.getInput('dry_run') === 'false') {
+            core.info(`Publishing post: ${this.title}`);
+            const variables = {
+                repositoryId: repoId,
+                title: this.title,
+                body: this.body,
+                categoryId
+            };
+            const result = await octokit_1.octokit.graphql(createMutation, variables);
+            core.info(`Published post: ${this.title} at ${result.createDiscussion.discussion.url}`);
+            this.id = result.createDiscussion.discussion.id;
+            this.url = result.createDiscussion.discussion.url;
         }
+        else {
+            core.info(`Dry run enabled. Skipping publishing post: ${this.title}`);
+        }
+        await this.addLabels();
         await this.delete();
         return this.id;
     }
@@ -29896,24 +29911,6 @@ class Draft {
     }
 }
 exports.Draft = Draft;
-
-
-/***/ }),
-
-/***/ 4756:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.Linter = void 0;
-class Linter {
-    path;
-    constructor(path) {
-        this.path = path;
-    }
-}
-exports.Linter = Linter;
 
 
 /***/ }),
@@ -29951,7 +29948,6 @@ exports.run = run;
 const core = __importStar(__nccwpck_require__(2186));
 const fs = __importStar(__nccwpck_require__(7147));
 const draft_1 = __nccwpck_require__(3351);
-const linter_1 = __nccwpck_require__(4756);
 function getDrafts() {
     const files = fs.readdirSync('./');
     let drafts = files.filter(file => file.endsWith('.md'));
@@ -29960,28 +29956,27 @@ function getDrafts() {
     return drafts.map(file => new draft_1.Draft(file));
 }
 function getChangedFiles() {
-    const json = core.getInput('changed_files');
-    return JSON.parse(json);
-}
-function lint() {
-    const changedFiles = getChangedFiles();
-    if (changedFiles.length === 0) {
-        core.info('No Markdown files changed. Skipping linting.');
-        return;
-    }
-    for (const file of changedFiles) {
-        console.log(file);
-        const linter = new linter_1.Linter(file);
-    }
+    const json = core.getInput('files');
+    const paths = JSON.parse(json);
+    return paths.map(file => new draft_1.Draft(file));
 }
 async function cron() {
-    const drafts = getDrafts();
+    let drafts;
+    const changed = core.getInput('changed');
+    const dryRun = core.getInput('dry_run');
+    if (dryRun === 'true') {
+        core.info('Dry run enabled. Skipping publishing drafts');
+    }
+    if (changed.length > 0) {
+        drafts = getChangedFiles();
+    }
+    else {
+        drafts = getDrafts();
+    }
+    const pathsToProcess = drafts.map(draft => draft.path);
+    core.info(`Processing drafts: ${pathsToProcess.join(', ')}`);
     for (const draft of drafts) {
-        if (draft.date === undefined) {
-            core.info(`Skipping draft ${draft.path} with no date`);
-            continue;
-        }
-        if (!draft.isPast) {
+        if (!draft.isPast && dryRun === 'false') {
             core.info(`Skipping draft ${draft.path} with date ${draft.date} as it is in the future`);
             continue;
         }
@@ -29994,13 +29989,7 @@ async function cron() {
 }
 async function run() {
     try {
-        const linting = core.getInput('lint');
-        if (linting === 'true') {
-            lint();
-        }
-        else {
-            cron();
-        }
+        cron();
     }
     catch (error) {
         if (error instanceof Error)
@@ -30050,8 +30039,18 @@ let options = {};
 if (process.env.NODE_ENV === 'test') {
     options = { request: { fetch: exports.sandbox } };
 }
-const discussionToken = core.getInput('discussion_token');
-const repoToken = core.getInput('repo_token');
+let discussionToken;
+let repoToken;
+// Avoid errors for missing tokens when running tests
+if (core.getInput('dry_run') === 'true' || process.env.NODE_ENV === 'test') {
+    discussionToken = 'TOKEN';
+    repoToken = 'TOKEN';
+    core.info('Running in dry-run mode or test environment');
+}
+else {
+    discussionToken = core.getInput('discussion_token');
+    repoToken = core.getInput('repo_token');
+}
 // Octokit instance with discussion create scope for the target repo
 exports.octokit = github.getOctokit(discussionToken, options);
 // Octokit instance with the default Actions token for the current repo
