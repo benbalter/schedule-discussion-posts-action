@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as core from '@actions/core'
 import { parse } from 'yaml'
-import { octokit, repoOctokit } from './octokit'
+import { octokit, repoOctokit, octokitForAuthor } from './octokit'
 import { Repository } from './repo'
 import type { GraphQlQueryResponseData } from '@octokit/graphql'
 import * as yaml from 'yaml'
@@ -41,6 +41,8 @@ export class Draft {
   labels: string[] = []
   url: string | undefined
   category: string | undefined
+  author: string | undefined
+  octokit: typeof octokit
 
   requiredFrontMatter = ['title', 'repository', 'date', 'category', 'body']
 
@@ -48,6 +50,7 @@ export class Draft {
     console.info(`Reading draft: ${path}`)
 
     this.path = path
+    this.octokit = octokit
     this.contents = this.readContents()
     const parsed = this.parseFrontMatter()
 
@@ -68,8 +71,8 @@ export class Draft {
       return
     }
 
-    const repoParts = parsed.repository.split('/')
-    const parsedDate = chrono.parseDate(parsed.date)
+    // TODO: Move each of these to their own functions
+    const parsedDate = chrono.parseDate(parsed.date as string)
 
     if (parsedDate === null) {
       core.setFailed(`Failed to parse date in draft: ${this.path}`)
@@ -77,12 +80,19 @@ export class Draft {
     }
     core.info(`${this.path} has date: ${parsedDate}`)
 
-    this.repository = new Repository(repoParts[0], repoParts[1])
+    const repoParts = parsed.repository?.split('/')
+    if (repoParts === undefined || repoParts.length !== 2) {
+      core.setFailed(`Failed to parse repository in draft: ${this.path}`)
+      return
+    }
+
+    this.repository = new Repository(repoParts[0], repoParts[1], parsed.author)
     this.title = parsed.title
-    this.body = parsed.body.trim()
+    this.body = parsed.body?.trim()
     this.date = parsedDate
     this.path = path
     this.category = parsed.category
+    this.author = parsed.author?.replace('@', '')
 
     if (parsed.labels !== undefined) {
       this.labels = (parsed.label || parsed.labels)
@@ -90,6 +100,15 @@ export class Draft {
         .map((label: string) => label.trim())
     } else {
       this.labels = []
+    }
+
+    if (parsed.author !== undefined && parsed.author !== '') {
+      const authorOctokit = octokitForAuthor(parsed.author)
+
+      if (authorOctokit !== undefined) {
+        this.octokit = authorOctokit
+        console.info(`Masquerading as ${parsed.author}`)
+      }
     }
 
     console.info(
@@ -106,7 +125,7 @@ export class Draft {
     }
   }
 
-  parseFrontMatter(): { [key: string]: string } | undefined {
+  parseFrontMatter(): { [key: string]: string | undefined } | undefined {
     if (this.contents === undefined) {
       return
     }
@@ -210,7 +229,7 @@ export class Draft {
 
     try {
       core.info(`Setting labels for post ${this.title} as ${this.labels}`)
-      await octokit.graphql(labelMutation, variables)
+      await this.octokit.graphql(labelMutation, variables)
     } catch (error) {
       core.setFailed(`Failed to set labels for post: ${this.title} (${error})`)
     }
@@ -243,7 +262,7 @@ export class Draft {
         body: this.body,
         categoryId
       }
-      const result: GraphQlQueryResponseData = await octokit.graphql(
+      const result: GraphQlQueryResponseData = await this.octokit.graphql(
         createMutation,
         variables
       )

@@ -23,6 +23,7 @@ jobs:
           escape_json: false
           files: |
             **.md
+            !__tests__/**/*.md
 
       - name: Lint markdown files
         uses: ./
