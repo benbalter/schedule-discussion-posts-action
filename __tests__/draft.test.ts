@@ -1,7 +1,6 @@
-import { sandbox, octokit } from '../src/octokit'
+import { sandbox } from '../src/octokit'
 import { Draft } from '../src/draft'
 import {
-  mockGraphQL,
   mockLabel,
   mockRepo,
   mockCreateDiscussion,
@@ -55,112 +54,64 @@ describe('draft', () => {
     expect(deleteMock.called()).toBe(true)
   })
 
-  it('Adds labels', async () => {
-    mockLabel()
-    const mock = mockLabelCreation()
-    const draft = new Draft('./__tests__/fixtures/draft.md')
-    draft.id = 'id123'
+  for (const author of [undefined, 'author']) {
+    describe(`with author: ${author || 'default'}`, () => {
+      let token: string
+      let fixture: string
 
-    await draft.addLabels()
-    expect(mock.called()).toBe(true)
-  })
-
-  it('Publishes', async () => {
-    const mock = mockCreateDiscussion()
-    mockCategory()
-    mockRepo()
-    mockLabel()
-    const labelMock = mockLabelCreation()
-    const { getMock, deleteMock } = mockFileDeletion()
-
-    const draft = new Draft('./__tests__/fixtures/draft.md')
-    const id = await draft.publish()
-    expect(mock.called()).toBe(true)
-    expect(labelMock.called()).toBe(true)
-    expect(deleteMock.called()).toBe(true)
-    expect(getMock.called()).toBe(true)
-    expect(id).toBe('id123')
-  })
-
-  it("Knows when it's published", async () => {
-    const draft = new Draft('./__tests__/fixtures/draft.md')
-    const mock = mockPost()
-    const isPublished = await draft.isPublished()
-    expect(mock.called()).toBe(true)
-    expect(isPublished).toBe(true)
-  })
-
-  it("Knows when it's not published", async () => {
-    const draft = new Draft('./__tests__/fixtures/future.md')
-    const mock = mockPost({ nodes: [] })
-    const isPublished = await draft.isPublished()
-    expect(mock.called()).toBe(true)
-    expect(isPublished).toBe(false)
-  })
-
-  it('uses the default octokit when no author is provided', async () => {
-    const draft = new Draft('./__tests__/fixtures/draft.md')
-    expect(draft.octokit).toBeDefined()
-    expect(draft.octokit).toBe(octokit)
-
-    const mock = sandbox.mock(
-      {
-        url: 'https://api.github.com/repos/owner/repo/labels/question',
-        headers: {
-          authorization: 'token TOKEN'
+      beforeAll(() => {
+        if (author === 'author') {
+          token = 'AUTHOR_TOKEN'
+          process.env.INPUT_DISCUSSION_TOKEN_AUTHOR = token
+        } else {
+          token = 'TOKEN'
+          process.env.INPUT_DISCUSSION_TOKEN_AUTHOR = undefined
         }
-      },
-      {
-        node_id: 'addlabel123'
-      }
-    )
+        fixture = `./__tests__/fixtures/${author || 'default'}.md`
+      })
 
-    const data = {
-      data: {
-        addLabelsToLabelable: {
-          discussion: {
-            number: 1
-          }
-        }
-      }
-    }
-    mockGraphQL(data, 'addLabels', 'addlabel123')
-    draft.id = 'id123'
+      it('Adds labels', async () => {
+        mockLabel({ token })
+        const mock = mockLabelCreation({ token })
+        const draft = new Draft(fixture)
+        draft.id = 'id123'
 
-    await draft.addLabels()
-    expect(mock.called()).toBe(true)
-  })
+        await draft.addLabels()
+        expect(mock.called()).toBe(true)
+      })
 
-  it('uses the author octokit when an author is provided', async () => {
-    process.env['INPUT_DISCUSSION_TOKEN_HUBOT'] = 'author_token'
-    const draft = new Draft('./__tests__/fixtures/author.md')
-    expect(draft.octokit).toBeDefined()
+      it("Knows when it's published", async () => {
+        const draft = new Draft(fixture)
+        const mock = mockPost({ token })
+        const isPublished = await draft.isPublished()
+        expect(mock.called()).toBe(true)
+        expect(isPublished).toBe(true)
+      })
 
-    const mock = sandbox.mock(
-      {
-        url: 'https://api.github.com/repos/owner/repo/labels/question',
-        headers: {
-          authorization: 'token author_token'
-        }
-      },
-      {
-        node_id: 'addlabel123'
-      }
-    )
+      it("Knows when it's not published", async () => {
+        const draft = new Draft(fixture)
+        const mock = mockPost({ nodes: [], token })
+        const isPublished = await draft.isPublished()
+        expect(mock.called()).toBe(true)
+        expect(isPublished).toBe(false)
+      })
 
-    const data = {
-      data: {
-        addLabelsToLabelable: {
-          discussion: {
-            number: 1
-          }
-        }
-      }
-    }
-    mockGraphQL(data, 'addLabels', 'addlabel123')
-    draft.id = 'id123'
+      it('Publishes', async () => {
+        const mock = mockCreateDiscussion({ token })
+        mockCategory({ token })
+        mockRepo({ token })
+        mockLabel({ token })
+        const labelMock = mockLabelCreation({ token })
+        const { getMock, deleteMock } = mockFileDeletion()
 
-    await draft.publish()
-    expect(mock.called()).toBe(true)
-  })
+        const draft = new Draft(fixture)
+        const id = await draft.publish()
+        expect(mock.called()).toBe(true)
+        expect(labelMock.called()).toBe(true)
+        expect(deleteMock.called()).toBe(true)
+        expect(getMock.called()).toBe(true)
+        expect(id).toBe('id123')
+      })
+    })
+  }
 })

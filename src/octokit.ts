@@ -16,7 +16,7 @@ let repoToken: string
 // Avoid errors for missing tokens when running tests
 if (core.getInput('dry_run') === 'true' || process.env.NODE_ENV === 'test') {
   discussionToken = 'TOKEN'
-  repoToken = 'TOKEN'
+  repoToken = 'REPO_TOKEN'
   core.info('Running in dry-run mode or test environment')
 } else {
   // Yes, we could set { required: true } below, but this provides more

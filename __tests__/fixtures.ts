@@ -1,12 +1,12 @@
 import { sandbox } from '../src/octokit'
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function mockGraphQL(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: Record<string, any>,
   name: string,
-  body?: string
-) {
+  body?: string,
+  token?: string
+): typeof sandbox.mock {
   const response = { status: 200, body: data }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const matcher = (_: string, options: Record<string, any>): boolean => {
@@ -25,6 +25,9 @@ export function mockGraphQL(
       method: 'POST',
       url: 'https://api.github.com/graphql',
       name,
+      headers: {
+        authorization: `token ${token || 'TOKEN'}`
+      },
       functionMatcher: matcher
     },
     response,
@@ -32,12 +35,19 @@ export function mockGraphQL(
   )
 }
 
-export function mockLabel(options?: { label?: string; id?: string }) {
-  const defaults = { label: 'question', id: 'label123' }
-  const { label, id } = { ...defaults, ...options }
+export function mockLabel(options?: {
+  label?: string
+  id?: string
+  token?: string
+}): typeof sandbox.mock {
+  const defaults = { label: 'question', id: 'label123', token: 'TOKEN' }
+  const { label, id, token } = { ...defaults, ...options }
 
   return sandbox.mock(
-    `https://api.github.com/repos/owner/repo/labels/${label}`,
+    {
+      url: `https://api.github.com/repos/owner/repo/labels/${label}`,
+      headers: { authorization: `token ${token}` }
+    },
     {
       node_id: id
     }
@@ -48,21 +58,35 @@ export function mockRepo(options?: {
   owner?: string
   name?: string
   id?: string
-}) {
-  const defaults = { owner: 'owner', name: 'repo', id: 'id123' }
-  const { owner, name, id } = { ...defaults, ...options }
+  token?: string
+}): typeof sandbox.mock {
+  const defaults = { owner: 'owner', name: 'repo', id: 'id123', token: 'TOKEN' }
+  const { owner, name, id, token } = { ...defaults, ...options }
 
-  return sandbox.mock(`https://api.github.com/repos/${owner}/${name}`, {
-    node_id: id
-  })
+  return sandbox.mock(
+    {
+      url: `https://api.github.com/repos/${owner}/${name}`,
+      headers: {
+        authorization: `token ${token}`
+      }
+    },
+    {
+      node_id: id
+    }
+  )
 }
 
-export function mockCreateDiscussion(options?: { id?: string; url?: string }) {
+export function mockCreateDiscussion(options?: {
+  id?: string
+  url?: string
+  token?: string
+}): typeof sandbox.mock {
   const defaults = {
     id: 'id123',
-    url: 'https://github.com/owner/repo/discussions/1'
+    url: 'https://github.com/owner/repo/discussions/1',
+    token: 'TOKEN'
   }
-  const { id, url } = { ...defaults, ...options }
+  const { id, url, token } = { ...defaults, ...options }
 
   const postData = {
     data: {
@@ -75,19 +99,21 @@ export function mockCreateDiscussion(options?: { id?: string; url?: string }) {
     }
   }
 
-  return mockGraphQL(postData, 'publish', 'createDiscussion')
+  return mockGraphQL(postData, 'publish', 'createDiscussion', token)
 }
 
 export function mockCategory(options?: {
   categories?: { id: string; name: string }[]
-}) {
+  token?: string
+}): typeof sandbox.mock {
   const defaults = {
     categories: [
       { id: '123', name: 'General' },
       { id: '456', name: 'Other' }
-    ]
+    ],
+    token: 'TOKEN'
   }
-  const { categories } = { ...defaults, ...options }
+  const { categories, token } = { ...defaults, ...options }
   const categoryData = {
     data: {
       repository: {
@@ -100,13 +126,18 @@ export function mockCategory(options?: {
   return mockGraphQL(
     categoryData,
     'repoDiscussionCategoryQuery',
-    'discussionCategories'
+    'discussionCategories',
+    token
   )
 }
 
-export function mockLabelCreation(options?: { number?: number }) {
-  const defaults = { number: 1 }
-  const { number } = { ...defaults, ...options }
+export function mockLabelCreation(options?: {
+  label?: string
+  number?: number
+  token?: string
+}): typeof sandbox.mock {
+  const defaults = { number: 1, token: 'TOKEN', label: 'question' }
+  const { number, token, label } = { ...defaults, ...options }
   const data = {
     data: {
       addLabelsToLabelable: {
@@ -116,20 +147,28 @@ export function mockLabelCreation(options?: { number?: number }) {
       }
     }
   }
-  return mockGraphQL(data, 'addLabels', 'label123')
+  return mockGraphQL(data, 'addLabels', label, token)
 }
 
-export function mockFileDeletion(options?: { url?: string; sha?: string }) {
+export function mockFileDeletion(options?: {
+  url?: string
+  sha?: string
+  token: string
+}): { getMock: typeof sandbox.mock; deleteMock: typeof sandbox.mock } {
   const defaults = {
     url: 'https://api.github.com/repos/owner/repo/contents/.%2F__tests__%2Ffixtures%2Fdraft.md',
-    sha: 'sha123'
+    sha: 'sha123',
+    token: 'REPO_TOKEN'
   }
-  const { url, sha } = { ...defaults, ...options }
+  const { url, sha, token } = { ...defaults, ...options }
 
   const getMock = sandbox.mock(
     {
       url,
-      method: 'GET'
+      method: 'GET',
+      headers: {
+        authorization: `token ${token}`
+      }
     },
     { sha }
   )
@@ -137,7 +176,10 @@ export function mockFileDeletion(options?: { url?: string; sha?: string }) {
     {
       url,
       //TODO: Validate SHA and message
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: {
+        authorization: `token ${token}`
+      }
     },
     200
   )
@@ -145,13 +187,16 @@ export function mockFileDeletion(options?: { url?: string; sha?: string }) {
   return { getMock, deleteMock }
 }
 
-export function mockPost(options?: { nodes: { id?: string; url?: string }[] }) {
+export function mockPost(options?: {
+  nodes?: { id?: string; url?: string }[]
+  token?: string
+}): typeof sandbox.mock {
   const defaults = {
     nodes: [
       { id: 'post123', url: 'https://github.com/owner./repo/discussions/1' }
     ]
   }
-  const { nodes } = { ...defaults, ...options }
+  const { nodes, token } = { ...defaults, ...options }
   const responseData = {
     data: {
       search: {
@@ -159,5 +204,5 @@ export function mockPost(options?: { nodes: { id?: string; url?: string }[] }) {
       }
     }
   }
-  return mockGraphQL(responseData, 'postIsPublished', 'search')
+  return mockGraphQL(responseData, 'postIsPublished', 'search', token)
 }
