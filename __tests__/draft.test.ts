@@ -57,10 +57,30 @@ describe('draft', () => {
   })
 
   it('Adds labels', async () => {
-    //TODO
+    sandbox.mock('https://api.github.com/repos/owner/repo/labels/question', {
+      node_id: 'addlabel123'
+    })
+
+    const data = {
+      data: {
+        addLabelsToLabelable: {
+          discussion: {
+            number: 1
+          }
+        }
+      }
+    }
+    const mock = mockGraphQL(data, 'addLabels', 'addlabel123')
+    const draft = new Draft('./__tests__/fixtures/draft.md')
+    draft.id = 'id123'
+
+    await draft.addLabels()
+    expect(mock.called()).toBe(true)
   })
 
   it('Publishes', async () => {
+    sandbox.restore()
+
     const postData = {
       data: {
         createDiscussion: {
@@ -101,12 +121,44 @@ describe('draft', () => {
 
     // Mock the query to get the Label ID
     sandbox.mock('https://api.github.com/repos/owner/repo/labels/question', {
-      node_id: 'label123'
+      node_id: 'publishLabel123'
     })
+
+    //Mock the add label mutation
+    const data = {
+      data: {
+        addLabelsToLabelable: {
+          discussion: {
+            number: 1
+          }
+        }
+      }
+    }
+    const labelMock = mockGraphQL(data, 'addLabelsOnPublish', 'publishLabel123')
+
+    // Mock file deletion
+    const getMock = sandbox.mock(
+      {
+        url: 'https://api.github.com/repos/owner/repo/contents/.%2F__tests__%2Ffixtures%2Fdraft.md',
+        method: 'GET'
+      },
+      { sha: 'sha123' }
+    )
+    const deleteMock = sandbox.mock(
+      {
+        url: 'https://api.github.com/repos/owner/repo/contents/.%2F__tests__%2Ffixtures%2Fdraft.md',
+        //TODO: Validate SHA and message
+        method: 'DELETE'
+      },
+      200
+    )
 
     const draft = new Draft('./__tests__/fixtures/draft.md')
     const id = await draft.publish()
     expect(mock.called()).toBe(true)
+    expect(labelMock.called()).toBe(true)
+    expect(getMock.called()).toBe(true)
+    expect(deleteMock.called()).toBe(true)
     expect(id).toBe('id123')
   })
 
