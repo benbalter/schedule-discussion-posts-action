@@ -150,6 +150,7 @@ jobs:
         uses: tj-actions/changed-files@v44
         with:
           json: true
+          escape_json: false
           files: |
             **.md
 
