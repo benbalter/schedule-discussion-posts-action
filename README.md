@@ -123,7 +123,7 @@ API.
 ## But what if I did something wrong? (Optional)
 
 For additional peace of mind, you can set up a "linter" to check your drafts.
-Create a `.github/workflows/lint-drafts.yml` file in your source repo with the
+Create a `.github/workflows/lint-drafts.yml` file in your source repository with the
 following content:
 
 ```yaml
