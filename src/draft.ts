@@ -186,7 +186,7 @@ export class Draft {
         message,
         sha
       })
-      core.debug(`Deleted draft: ${this.path}`)
+      core.info(`Deleted draft: ${this.path}`)
     } catch (error) {
       core.setFailed(`Failed to delete draft: ${this.path} (${error})`)
     }
@@ -266,7 +266,7 @@ export class Draft {
         createMutation,
         variables
       )
-      core.info(
+      core.notice(
         `Published post: ${this.title} at ${result.createDiscussion.discussion.url}`
       )
       this.id = result.createDiscussion.discussion.id

@@ -81,13 +81,19 @@ export class Repository {
         )
         return
       } else {
-        core.info(
+        core.warning(
           `🛑 Found existing discussion with title "${title}" and date ${date}: ${results[0].url}`
         )
       }
       return results[0]
     } catch (error) {
-      core.setFailed(`Failed to search for discussion: ${title} (${error})`)
+      if (core.getInput('dry_run') === 'true') {
+        core.warning(
+          `Could not check if discussion ${title} already exists: (${error})`
+        )
+      } else {
+        core.setFailed(`Failed to search for discussion: ${title} (${error})`)
+      }
       return
     }
   }

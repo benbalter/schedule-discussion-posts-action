@@ -29826,7 +29826,7 @@ class Draft {
                 message,
                 sha
             });
-            core.debug(`Deleted draft: ${this.path}`);
+            core.info(`Deleted draft: ${this.path}`);
         }
         catch (error) {
             core.setFailed(`Failed to delete draft: ${this.path} (${error})`);
@@ -29890,7 +29890,7 @@ class Draft {
                 categoryId
             };
             const result = await this.octokit.graphql(createMutation, variables);
-            core.info(`Published post: ${this.title} at ${result.createDiscussion.discussion.url}`);
+            core.notice(`Published post: ${this.title} at ${result.createDiscussion.discussion.url}`);
             this.id = result.createDiscussion.discussion.id;
             this.url = result.createDiscussion.discussion.url;
         }
@@ -30065,10 +30065,10 @@ if (process.env.NODE_ENV === 'test') {
 let discussionToken;
 let repoToken;
 // Avoid errors for missing tokens when running tests
-if (core.getInput('dry_run') === 'true' || process.env.NODE_ENV === 'test') {
+if (process.env.NODE_ENV === 'test') {
     discussionToken = 'TOKEN';
     repoToken = 'REPO_TOKEN';
-    core.info('Running in dry-run mode or test environment');
+    core.info('Running in test mode');
 }
 else {
     // Yes, we could set { required: true } below, but this provides more
@@ -30195,12 +30195,17 @@ class Repository {
                 return;
             }
             else {
-                core.info(`🛑 Found existing discussion with title "${title}" and date ${date}: ${results[0].url}`);
+                core.warning(`🛑 Found existing discussion with title "${title}" and date ${date}: ${results[0].url}`);
             }
             return results[0];
         }
         catch (error) {
-            core.setFailed(`Failed to search for discussion: ${title} (${error})`);
+            if (core.getInput('dry_run') === 'true') {
+                core.warning(`Could not check if discussion ${title} already exists: (${error})`);
+            }
+            else {
+                core.setFailed(`Failed to search for discussion: ${title} (${error})`);
+            }
             return;
         }
     }
