@@ -10,11 +10,16 @@ if (process.env.NODE_ENV === 'test') {
   options = { request: { fetch: sandbox } }
 }
 
-const discussionToken = core.getInput('discussion_token') || 'TOKEN'
-const repoToken = core.getInput('repo_token') || 'TOKEN'
+let discussionToken: string
+let repoToken: string
 
-if (discussionToken === 'TOKEN' || repoToken === 'TOKEN') {
-  core.warning('You must provide a `discussion_token` and `repo_token`')
+// Avoid errors for missing tokens when running tests
+if (core.getInput('dry_run') === 'true' || process.env.NODE_ENV === 'test') {
+  discussionToken = 'TOKEN'
+  repoToken = 'TOKEN'
+} else {
+  discussionToken = core.getInput('discussion_token')
+  repoToken = core.getInput('repo_token')
 }
 
 // Octokit instance with discussion create scope for the target repo
