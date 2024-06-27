@@ -29834,6 +29834,7 @@ class Draft {
         }));
         core.warning(`Setting labels is not yet implemented. Would have set labels: ${this.labels}`);
         return;
+        // eslint-disable-next-line no-unreachable
         if (core.getInput('dry_run') === 'true') {
             core.info('Dry run enabled. Skipping setting labels. Would have set: ${this.labels}');
             return;
@@ -29954,8 +29955,7 @@ const fs = __importStar(__nccwpck_require__(7147));
 const draft_1 = __nccwpck_require__(3351);
 function getDrafts() {
     const files = fs.readdirSync('./');
-    let drafts = files.filter(file => file.endsWith('.md'));
-    drafts = drafts.filter(file => !file.match(/README\.md/i));
+    const drafts = files.filter(file => file.endsWith('.md'));
     core.info(`Found ${drafts.length} drafts`);
     return drafts.map(file => new draft_1.Draft(file));
 }
@@ -29977,6 +29977,8 @@ async function cron() {
     else {
         drafts = getDrafts();
     }
+    // Don't check changes to README.md
+    drafts = drafts.filter(draft => !draft.path.match(/README\.md/i));
     const pathsToProcess = drafts.map(draft => draft.path);
     core.info(`Processing drafts: ${pathsToProcess.join(', ')}`);
     for (const draft of drafts) {
