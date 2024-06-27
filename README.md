@@ -36,7 +36,7 @@ Create a `.github/workflows/schedule-discussion-post.yml` file in your
 repository with the following content:
 
 ```yaml
-name: Schedule Discussion Post
+name: Schedule Discussion Posts
 
 on:
   schedule:
@@ -46,7 +46,7 @@ permissions:
   contents: write
 
 jobs:
-  schedule-discussion-post:
+  schedule-discussion-posts:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -157,7 +157,7 @@ jobs:
             **.md
 
       - name: Lint markdown files
-        uses: benbalter/schedule-discussion-post-action@main
+        uses: benbalter/schedule-discussion-posts-action@main
         if: steps.changed-markdown-files.outputs.any_changed == 'true'
         with:
           dry_run: true
@@ -218,11 +218,11 @@ token. For example:
 
 ```yaml
 jobs:
-  schedule-discussion-post:
+  schedule-discussion-posts:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: benbalter/schedule-discussion-post-action@main
+      - uses: benbalter/schedule-discussion-posts-action@main
         with:
           # The default token used when no author is specified
           discussion_token: ${{ secrets.DISCUSSION_TOKEN }}
