@@ -4,8 +4,7 @@ import { Draft } from './draft'
 
 function getDrafts(): Draft[] {
   const files = fs.readdirSync('./')
-  let drafts = files.filter(file => file.endsWith('.md'))
-  drafts = drafts.filter(file => !file.match(/README\.md/i))
+  const drafts = files.filter(file => file.endsWith('.md'))
   core.info(`Found ${drafts.length} drafts`)
   return drafts.map(file => new Draft(file))
 }
@@ -30,6 +29,9 @@ async function cron(): Promise<void> {
   } else {
     drafts = getDrafts()
   }
+
+  // Don't check changes to README.md
+  drafts = drafts.filter(draft => !draft.path.match(/README\.md/i))
 
   const pathsToProcess = drafts.map(draft => draft.path)
   core.info(`Processing drafts: ${pathsToProcess.join(', ')}`)
