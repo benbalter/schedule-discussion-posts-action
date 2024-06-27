@@ -116,7 +116,8 @@ The following front matter fields are supported:
 - `category` (required): The category of the discussion post.
 - `labels` (optional): A comma-separated list of labels to apply to the
   discussion post.
-- `author` (optional): The GitHub handle of the author of the post. Defaults to the owner of the `DISCUSSION_TOKEN`.
+- `author` (optional): The GitHub handle of the author of the post. Defaults to
+  the owner of the `DISCUSSION_TOKEN`.
 
 Note: Setting labels is not yet implemented due to restrictions with the GitHub
 API.
@@ -193,7 +194,10 @@ The Action accepts the following `with:` parameters:
 
 ### Multiple authors
 
-By default, the action will use the `DISCUSSION_TOKEN` secret to create the discussion post (which will be authored by the user who created the token). If you want to specify a different author, you can add an `author` field to the front matter of the draft post with their handle. For example:
+By default, the action will use the `DISCUSSION_TOKEN` secret to create the
+discussion post (which will be authored by the user who created the token). If
+you want to specify a different author, you can add an `author` field to the
+front matter of the draft post with their handle. For example:
 
 ```markdown
 ---
@@ -205,9 +209,12 @@ author: hubot
 ---
 ```
 
-You will then need to follow the instructions above to create a Personal Access Token for that user and add it to the repository secrets as `DISCUSSION_TOKEN_$HANDLE` (in this case, `DISCUSSION_TOKEN_HUBOT`).
+You will then need to follow the instructions above to create a Personal Access
+Token for that user and add it to the repository secrets as
+`DISCUSSION_TOKEN_$HANDLE` (in this case, `DISCUSSION_TOKEN_HUBOT`).
 
-Finally, you will need to update the Action configuration to pass the additional token. For example:
+Finally, you will need to update the Action configuration to pass the additional
+token. For example:
 
 ```yaml
 jobs:
@@ -221,4 +228,8 @@ jobs:
           discussion_token_hubot: ${{ secrets.DISCUSSION_TOKEN_HUBOT }} # The token to use when the author is hubot
 ```
 
-You may add as many authors to a repository as you'd like, each with their own token. The Action will use the appropriate token based on the author specified in the draft post. If the author specified does not have a corresponding token, the Action will try to use the default token, but will warn you that the author is not set up correctly when you do a dry run.
+You may add as many authors to a repository as you'd like, each with their own
+token. The Action will use the appropriate token based on the author specified
+in the draft post. If the author specified does not have a corresponding token,
+the Action will try to use the default token, but will warn you that the author
+is not set up correctly when you do a dry run.
