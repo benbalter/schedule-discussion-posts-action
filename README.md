@@ -156,6 +156,10 @@ This will run through the entire process of parsing and validating any changed d
 
 Note: This Workflow file assumes you're using a pull request workflow. If you're not, adjust the `on` trigger accordingly (example: on push to `main`).
 
+Example Lint output:
+
+![Lint output](https://github.com/user-attachments/assets/379064bd-d445-4d0f-aa94-07f75e86ec30)
+
 ## Advanced Usage
 
 The Action accepts the following `with:` parameters:
