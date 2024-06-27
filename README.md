@@ -155,7 +155,7 @@ jobs:
             **.md
 
       - name: Lint markdown files
-        uses: ./
+        uses: benbalter/schedule-discussion-post-action@main
         if: steps.changed-markdown-files.outputs.any_changed == 'true'
         with:
           dry_run: true
