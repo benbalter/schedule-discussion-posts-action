@@ -20,7 +20,7 @@ const createMutation = `
 
 const labelMutation = `
   mutation($discussionId: ID!, $labelIds: [ID!]!) {
-    setLabelsForLabelable(input: {labelableId: $discussionId, labelIds: $labelIds}) {
+    addLabelsToLabelable(input: {labelableId: $discussionId, labelIds: $labelIds}) {
       labelable {
         ... on Discussion {
           number
@@ -195,12 +195,6 @@ export class Draft {
       })
     )
 
-    core.warning(
-      `Setting labels is not yet implemented. Would have set labels: ${this.labels}`
-    )
-    return
-
-    // eslint-disable-next-line no-unreachable
     if (core.getInput('dry_run') === 'true') {
       core.info(
         'Dry run enabled. Skipping setting labels. Would have set: ${this.labels}'
