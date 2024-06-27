@@ -25,5 +25,4 @@ jobs:
         if: steps.changed-markdown-files.outputs.any_changed == 'true'
         with:
           dry_run: true
-          changed_files:
-            ${{ steps.changed-markdown-files.outputs.all_changed_files }}
+          files: ${{ steps.changed-markdown-files.outputs.all_changed_files }}
