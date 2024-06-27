@@ -128,6 +128,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  
 jobs:
   changed_files:
     runs-on: ubuntu-latest 
