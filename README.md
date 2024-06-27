@@ -12,11 +12,11 @@ Setting up the action requires three steps (described in detail below):
 
 ## Concepts
 
-The Action is intended to be used with two or more repos:
+The Action is intended to be used with two or more repositories:
 
 - The first repository is the "**source**" repository. This repository contains
   the GitHub Action configuration as well as one or more "draft" discussion
-  posts. You'll likely want to lock this repo down to those that are part of the
+  posts. You'll likely want to lock this repoisotry down to those that are part of the
   drafting process.
 - The second repository (or third, or forth) is the "**target**" repository.
   This repository is where the discussion posts will be created. The repository
@@ -28,7 +28,7 @@ When the action runs (on a regular basis), it will look for any draft posts that
 are scheduled to be published (publication date in the past) and will create a
 coresponding discussion post in the target repository. You can schedule as many
 draft discussion posts as you'd like. Once published, the draft post will be
-deleted. to keep things tidy in the source repo.
+deleted. to keep things tidy in the source repository.
 
 ## Step 1: Set up this action
 
