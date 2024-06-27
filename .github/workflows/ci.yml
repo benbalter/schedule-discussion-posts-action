@@ -46,7 +46,7 @@ jobs:
         env:
           INPUT_DISCUSSION_TOKEN: 'asdf123'
           INPUT_REPO_TOKEN: 'asdf456'
-          dry_run: false
+          dry_run: 'false'
 
   test-action:
     name: GitHub Actions Test
