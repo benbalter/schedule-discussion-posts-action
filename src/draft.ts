@@ -42,7 +42,7 @@ export class Draft {
   url: string | undefined
   category: string | undefined
 
-  requiredFrontMatter = ['title', 'repository', 'date', 'category']
+  requiredFrontMatter = ['title', 'repository', 'date', 'category', 'body']
 
   constructor(path: string) {
     console.info(`Reading draft: ${path}`)
@@ -70,7 +70,7 @@ export class Draft {
       core.setFailed(`Failed to parse date in draft: ${this.path}`)
       return
     }
-    core.debug(`Parsed date: ${parsedDate}`)
+    core.info(`${this.path} has date: ${parsedDate}`)
 
     this.repository = new Repository(repoParts[0], repoParts[1])
     this.title = parsed.title
@@ -149,6 +149,11 @@ export class Draft {
     
     The post has been published as ${this.url}`
 
+    if (core.getInput('dry_run') === 'true') {
+      core.info(`Dry run enabled. Skipping deleting draft: ${this.path}`)
+      return
+    }
+
     try {
       await repoOctokit.rest.repos.deleteFile({
         owner: this.repository.owner,
@@ -174,6 +179,11 @@ export class Draft {
       return
     }
 
+    if (this.labels.length === 0) {
+      core.info('No labels to set')
+      return
+    }
+
     const labelIds = await Promise.all(
       this.labels.map(async label => {
         return await this.repository?.getLabelId(label)
@@ -184,6 +194,13 @@ export class Draft {
       `Setting labels is not yet implemented. Would have set labels: ${this.labels}`
     )
     return
+
+    if (core.getInput('dry_run') === 'true') {
+      core.info(
+        'Dry run enabled. Skipping setting labels. Would have set: ${this.labels}'
+      )
+      return
+    }
 
     // eslint-disable-next-line no-unreachable
     const variables = {
@@ -218,27 +235,28 @@ export class Draft {
     }
     core.debug(`Repository ID: ${repoId}`)
 
-    core.info(`Publishing post: ${this.title}`)
-    const variables = {
-      repositoryId: repoId,
-      title: this.title,
-      body: this.body,
-      categoryId
+    if (core.getInput('dry_run') === 'false') {
+      core.info(`Publishing post: ${this.title}`)
+      const variables = {
+        repositoryId: repoId,
+        title: this.title,
+        body: this.body,
+        categoryId
+      }
+      const result: GraphQlQueryResponseData = await octokit.graphql(
+        createMutation,
+        variables
+      )
+      core.info(
+        `Published post: ${this.title} at ${result.createDiscussion.discussion.url}`
+      )
+      this.id = result.createDiscussion.discussion.id
+      this.url = result.createDiscussion.discussion.url
+    } else {
+      core.info(`Dry run enabled. Skipping publishing post: ${this.title}`)
     }
-    const result: GraphQlQueryResponseData = await octokit.graphql(
-      createMutation,
-      variables
-    )
-    core.info(
-      `Published post: ${this.title} at ${result.createDiscussion.discussion.url}`
-    )
-    this.id = result.createDiscussion.discussion.id
-    this.url = result.createDiscussion.discussion.url
 
-    if (this.labels.length > 0) {
-      await this.addLabels()
-    }
-
+    await this.addLabels()
     await this.delete()
 
     return this.id

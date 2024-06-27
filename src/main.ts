@@ -1,7 +1,6 @@
 import * as core from '@actions/core'
 import * as fs from 'fs'
 import { Draft } from './draft'
-import { Linter } from './linter'
 
 function getDrafts(): Draft[] {
   const files = fs.readdirSync('./')
@@ -11,35 +10,32 @@ function getDrafts(): Draft[] {
   return drafts.map(file => new Draft(file))
 }
 
-function getChangedFiles() {
-  const json = core.getInput('changed_files')
-  return JSON.parse(json)
-}
-
-function lint() {
-  const changedFiles = getChangedFiles()
-
-  if (changedFiles.length === 0) {
-    core.info('No Markdown files changed. Skipping linting.')
-    return
-  }
-
-  for (const file of changedFiles) {
-    console.log(file)
-    const linter = new Linter(file)
-  }
+function getChangedFiles(): Draft[] {
+  const json = core.getInput('files')
+  const paths: string[] = JSON.parse(json)
+  return paths.map(file => new Draft(file)
 }
 
 async function cron(): Promise<void> {
-  const drafts = getDrafts()
+  let drafts: Draft[];
+  const changed = core.getInput('changed')
+  const dryRun = core.getInput('dry_run')
+
+  if (dryRun === 'true') {
+    core.info('Dry run enabled. Skipping publishing drafts')
+  }
+
+  if (changed.length > 0) {
+    drafts = getChangedFiles()
+  } else {
+    drafts = getDrafts()
+  }
+
+  const pathsToProcess = drafts.map(draft => draft.path)
+  core.info(`Processing drafts: ${pathsToProcess.join(', ')}`)
 
   for (const draft of drafts) {
-    if (draft.date === undefined) {
-      core.info(`Skipping draft ${draft.path} with no date`)
-      continue
-    }
-
-    if (!draft.isPast) {
+    if (!draft.isPast && dryRun === 'false') {
       core.info(
         `Skipping draft ${draft.path} with date ${draft.date} as it is in the future`
       )
