@@ -11,21 +11,26 @@ function getDrafts(): Draft[] {
 
 function getChangedFiles(): Draft[] {
   const json = core.getInput('files')
+
+  if (json === '') {
+    return []
+  }
+
   const paths: string[] = JSON.parse(json)
   return paths.map(file => new Draft(file))
 }
 
 async function cron(): Promise<void> {
   let drafts: Draft[]
-  const changed = core.getInput('changed')
   const dryRun = core.getInput('dry_run')
 
   if (dryRun === 'true') {
     core.info('Dry run enabled. Skipping publishing drafts')
   }
 
+  const changed = getChangedFiles()
   if (changed.length > 0) {
-    drafts = getChangedFiles()
+    drafts = changed
   } else {
     drafts = getDrafts()
   }

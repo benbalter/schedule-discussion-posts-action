@@ -29961,18 +29961,21 @@ function getDrafts() {
 }
 function getChangedFiles() {
     const json = core.getInput('files');
+    if (json === '') {
+        return [];
+    }
     const paths = JSON.parse(json);
     return paths.map(file => new draft_1.Draft(file));
 }
 async function cron() {
     let drafts;
-    const changed = core.getInput('changed');
     const dryRun = core.getInput('dry_run');
     if (dryRun === 'true') {
         core.info('Dry run enabled. Skipping publishing drafts');
     }
+    const changed = getChangedFiles();
     if (changed.length > 0) {
-        drafts = getChangedFiles();
+        drafts = changed;
     }
     else {
         drafts = getDrafts();
