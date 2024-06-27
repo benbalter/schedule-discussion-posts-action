@@ -59,6 +59,8 @@ This will run approximately on the top of the hour, every hour to check for
 posts to pubish. You can use tools like `crontab.guru` to adjust the schedule to
 your liking.
 
+Pro-tip: If this is a new repo, be sure to enable Discussions via the settings.
+
 ## Step 2: Add a Personal Access Token to the repository secrets
 
 For the Action to work, the intended author will need to create a Personal
