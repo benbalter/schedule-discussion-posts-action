@@ -29956,7 +29956,6 @@ const draft_1 = __nccwpck_require__(3351);
 function getDrafts() {
     const files = fs.readdirSync('./');
     const drafts = files.filter(file => file.endsWith('.md'));
-    core.info(`Found ${drafts.length} drafts`);
     return drafts.map(file => new draft_1.Draft(file));
 }
 function getChangedFiles() {
@@ -29982,6 +29981,7 @@ async function cron() {
     }
     // Don't check changes to README.md
     drafts = drafts.filter(draft => !draft.path.match(/README\.md/i));
+    core.info(`Found ${drafts.length} drafts`);
     const pathsToProcess = drafts.map(draft => draft.path);
     core.info(`Processing drafts: ${pathsToProcess.join(', ')}`);
     for (const draft of drafts) {
