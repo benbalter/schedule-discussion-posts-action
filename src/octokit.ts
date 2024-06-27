@@ -17,6 +17,7 @@ let repoToken: string
 if (core.getInput('dry_run') === 'true' || process.env.NODE_ENV === 'test') {
   discussionToken = 'TOKEN'
   repoToken = 'TOKEN'
+  core.info('Running in dry-run mode or test environment')
 } else {
   discussionToken = core.getInput('discussion_token')
   repoToken = core.getInput('repo_token')
