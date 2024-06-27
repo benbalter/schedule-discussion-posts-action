@@ -30088,7 +30088,7 @@ exports.repoOctokit = github.getOctokit(repoToken, options);
 function octokitForAuthor(author) {
     const token = core.getInput(`discussion_token_${author}`);
     if (token === '') {
-        core.setFailed(`"discussion_token_${author}" is required. To post as ${author}.`);
+        core.setFailed(`"discussion_token_${author}" is required to post as ${author}.`);
         return;
     }
     return github.getOctokit(token, options);

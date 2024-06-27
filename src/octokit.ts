@@ -43,7 +43,7 @@ export function octokitForAuthor(author: string): undefined | typeof octokit {
   const token = core.getInput(`discussion_token_${author}`)
   if (token === '') {
     core.setFailed(
-      `"discussion_token_${author}" is required. To post as ${author}.`
+      `"discussion_token_${author}" is required to post as ${author}.`
     )
     return
   }
