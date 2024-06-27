@@ -29708,10 +29708,13 @@ class Draft {
     labels = [];
     url;
     category;
+    author;
+    octokit;
     requiredFrontMatter = ['title', 'repository', 'date', 'category', 'body'];
     constructor(path) {
         console.info(`Reading draft: ${path}`);
         this.path = path;
+        this.octokit = octokit_1.octokit;
         this.contents = this.readContents();
         const parsed = this.parseFrontMatter();
         if (parsed === undefined) {
@@ -29728,19 +29731,25 @@ class Draft {
         if (!hasRequiredFrontMatter) {
             return;
         }
-        const repoParts = parsed.repository.split('/');
+        // TODO: Move each of these to their own functions
         const parsedDate = chrono.parseDate(parsed.date);
         if (parsedDate === null) {
             core.setFailed(`Failed to parse date in draft: ${this.path}`);
             return;
         }
         core.info(`${this.path} has date: ${parsedDate}`);
-        this.repository = new repo_1.Repository(repoParts[0], repoParts[1]);
+        const repoParts = parsed.repository?.split('/');
+        if (repoParts === undefined || repoParts.length !== 2) {
+            core.setFailed(`Failed to parse repository in draft: ${this.path}`);
+            return;
+        }
+        this.repository = new repo_1.Repository(repoParts[0], repoParts[1], parsed.author);
         this.title = parsed.title;
-        this.body = parsed.body.trim();
+        this.body = parsed.body?.trim();
         this.date = parsedDate;
         this.path = path;
         this.category = parsed.category;
+        this.author = parsed.author?.replace('@', '');
         if (parsed.labels !== undefined) {
             this.labels = (parsed.label || parsed.labels)
                 .split(',')
@@ -29748,6 +29757,13 @@ class Draft {
         }
         else {
             this.labels = [];
+        }
+        if (parsed.author !== undefined && parsed.author !== '') {
+            const authorOctokit = (0, octokit_1.octokitForAuthor)(parsed.author);
+            if (authorOctokit !== undefined) {
+                this.octokit = authorOctokit;
+                console.info(`Masquerading as ${parsed.author}`);
+            }
         }
         console.info(`Front Matter for draft ${this.path}: \n${yaml.stringify(parsed)}`);
     }
@@ -29843,7 +29859,7 @@ class Draft {
         };
         try {
             core.info(`Setting labels for post ${this.title} as ${this.labels}`);
-            await octokit_1.octokit.graphql(labelMutation, variables);
+            await this.octokit.graphql(labelMutation, variables);
         }
         catch (error) {
             core.setFailed(`Failed to set labels for post: ${this.title} (${error})`);
@@ -29873,7 +29889,7 @@ class Draft {
                 body: this.body,
                 categoryId
             };
-            const result = await octokit_1.octokit.graphql(createMutation, variables);
+            const result = await this.octokit.graphql(createMutation, variables);
             core.info(`Published post: ${this.title} at ${result.createDiscussion.discussion.url}`);
             this.id = result.createDiscussion.discussion.id;
             this.url = result.createDiscussion.discussion.url;
@@ -30036,6 +30052,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.repoOctokit = exports.octokit = exports.sandbox = void 0;
+exports.octokitForAuthor = octokitForAuthor;
 __nccwpck_require__(4227);
 const github = __importStar(__nccwpck_require__(5438));
 const core = __importStar(__nccwpck_require__(2186));
@@ -30050,10 +30067,17 @@ let repoToken;
 // Avoid errors for missing tokens when running tests
 if (core.getInput('dry_run') === 'true' || process.env.NODE_ENV === 'test') {
     discussionToken = 'TOKEN';
-    repoToken = 'TOKEN';
+    repoToken = 'REPO_TOKEN';
     core.info('Running in dry-run mode or test environment');
 }
 else {
+    // Yes, we could set { required: true } below, but this provides more
+    // human-friendly error messages.
+    for (const token of ['discussion_token', 'repo_token']) {
+        if (core.getInput(token) === '') {
+            core.setFailed(`${token} is required. Pass as a "with" parameter in your workflow file.`);
+        }
+    }
     discussionToken = core.getInput('discussion_token');
     repoToken = core.getInput('repo_token');
 }
@@ -30061,6 +30085,14 @@ else {
 exports.octokit = github.getOctokit(discussionToken, options);
 // Octokit instance with the default Actions token for the current repo
 exports.repoOctokit = github.getOctokit(repoToken, options);
+function octokitForAuthor(author) {
+    const token = core.getInput(`discussion_token_${author}`);
+    if (token === '') {
+        core.setFailed(`"discussion_token_${author}" is required. To post as ${author}.`);
+        return;
+    }
+    return github.getOctokit(token, options);
+}
 
 
 /***/ }),
@@ -30124,14 +30156,22 @@ const discussionCategoryQuery = `
 class Repository {
     owner;
     name;
-    constructor(owner, name) {
+    octokit;
+    constructor(owner, name, authAs) {
         this.owner = owner;
         this.name = name;
+        this.octokit = octokit_1.octokit;
+        if (authAs !== undefined && authAs !== '') {
+            const authorOctokit = (0, octokit_1.octokitForAuthor)(authAs);
+            if (authorOctokit !== undefined) {
+                this.octokit = authorOctokit;
+            }
+        }
     }
     async getLabelId(name) {
         try {
             core.debug(`Getting label: ${name}`);
-            const { data: label } = await octokit_1.octokit.rest.issues.getLabel({
+            const { data: label } = await this.octokit.rest.issues.getLabel({
                 owner: this.owner,
                 repo: this.name,
                 name
@@ -30148,7 +30188,7 @@ class Repository {
         const query = `repo:${this.owner}/${this.name} is:discussion in:title ${title} created:>=${formattedDate}`;
         core.debug(`Searching for discussion: ${query}`);
         try {
-            const response = await octokit_1.repoOctokit.graphql(searchQuery, { q: query });
+            const response = await this.octokit.graphql(searchQuery, { q: query });
             const results = response.search.nodes;
             if (results.length === 0) {
                 core.info(`👍🏻 No existing discussion found with title "${title}" and date ${date}`);
@@ -30170,7 +30210,7 @@ class Repository {
             owner: this.owner,
             name: this.name
         };
-        const response = await octokit_1.repoOctokit.graphql(discussionCategoryQuery, variables);
+        const response = await this.octokit.graphql(discussionCategoryQuery, variables);
         const categories = response.repository.discussionCategories.nodes;
         const category = categories.find(cat => cat.name === name);
         if (category === undefined) {
@@ -30182,7 +30222,7 @@ class Repository {
     async getId() {
         try {
             core.debug(`Getting repository: ${this.name}`);
-            const { data: repo } = await octokit_1.octokit.rest.repos.get({
+            const { data: repo } = await this.octokit.rest.repos.get({
                 owner: this.owner,
                 repo: this.name
             });
