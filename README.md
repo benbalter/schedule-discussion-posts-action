@@ -116,7 +116,7 @@ The following front matter fields are supported:
 Note: Setting labels is not yet implemented due to restrictions with the GitHub
 API.
 
-## But what if I did something wrong?
+## But what if I did something wrong? (Optional)
 
 For additional peace of mind, you can set up a "linter" to check your drafts.
 Create a `.github/workflows/lint-drafts.yml` file in your source repo with the
