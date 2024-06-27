@@ -16,8 +16,8 @@ The Action is intended to be used with two or more repositories:
 
 - The first repository is the "**source**" repository. This repository contains
   the GitHub Action configuration as well as one or more "draft" discussion
-  posts. You'll likely want to lock this repoisotry down to those that are part of the
-  drafting process.
+  posts. You'll likely want to lock this repoisotry down to those that are part
+  of the drafting process.
 - The second repository (or third, or forth) is the "**target**" repository.
   This repository is where the discussion posts will be created. The repository
   can be set per draft, and will likely have a wider audience (e.g., those that
@@ -55,7 +55,9 @@ jobs:
           discussion_token: ${{ secrets.DISCUSSION_TOKEN }}
 ```
 
-This will run approximately on the top of the hour, every hour to check for posts to pubish. You can use tools like `crontab.guru` to adjust the schedule to your liking.
+This will run approximately on the top of the hour, every hour to check for
+posts to pubish. You can use tools like `crontab.guru` to adjust the schedule to
+your liking.
 
 ## Step 2: Add a Personal Access Token to the repository secrets
 
