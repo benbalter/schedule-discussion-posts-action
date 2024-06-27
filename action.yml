@@ -12,7 +12,7 @@ inputs:
     default: ${{ github.token }}
   discussion_token:
     description: A PAT with `discussion:write` scope for the target repository
-    required: true
+    required: false
   files:
     description:
       A JSON-encoded list of paths to process, otherwise all `*.md` files in the
