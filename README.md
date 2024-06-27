@@ -118,7 +118,9 @@ API.
 
 ## But what if I did something wrong?
 
-For additional peace of mind, you can set up a "linter" to check your drafts. Create a `.github/workflows/lint-drafts.yml` file in your source repo with the following content:
+For additional peace of mind, you can set up a "linter" to check your drafts.
+Create a `.github/workflows/lint-drafts.yml` file in your source repo with the
+following content:
 
 ```yaml
 name: Lint drafts
@@ -130,10 +132,10 @@ on:
 
 permissions:
   contents: read
-  
+
 jobs:
   changed_files:
-    runs-on: ubuntu-latest 
+    runs-on: ubuntu-latest
 
     name: Test changed-files
     steps:
@@ -155,9 +157,14 @@ jobs:
           files: ${{ steps.changed-markdown-files.outputs.all_changed_files }}
 ```
 
-This will run through the entire process of parsing and validating any changed draft in a pull request, but stop shot of actually creating the discussion post. If there are any issues, the Action will fail and provide feedback on what needs to be fixed. This should catch most issues giving you confidence that the post will be created as expected.
+This will run through the entire process of parsing and validating any changed
+draft in a pull request, but stop shot of actually creating the discussion post.
+If there are any issues, the Action will fail and provide feedback on what needs
+to be fixed. This should catch most issues giving you confidence that the post
+will be created as expected.
 
-Note: This Workflow file assumes you're using a pull request workflow. If you're not, adjust the `on` trigger accordingly (example: on push to `main`).
+Note: This Workflow file assumes you're using a pull request workflow. If you're
+not, adjust the `on` trigger accordingly (example: on push to `main`).
 
 Example Lint output:
 
@@ -167,13 +174,13 @@ Example Lint output:
 
 The Action accepts the following `with:` parameters:
 
-* `discussion_token` (required): The Personal Access Token to use to create the
+- `discussion_token` (required): The Personal Access Token to use to create the
   discussion post. Must have read/write access to the target repository.
-* `repo_token` (optional): The Personal Access Token to use to read the draft
+- `repo_token` (optional): The Personal Access Token to use to read the draft
   discussion posts. Must have read access to the source repository. Defaults to
   the `github.token` provided by the GitHub Actions runtime.
-* `dry_run` (optional): If set to `true`, the Action will parse the draft
+- `dry_run` (optional): If set to `true`, the Action will parse the draft
   discussion posts, but will not create the discussion posts. Defaults to
   `false`.
-* `files` (optional): A JSON-formatted array of files to parse. Defaults to all
+- `files` (optional): A JSON-formatted array of files to parse. Defaults to all
   `.md` files in the repository root.
