@@ -29718,11 +29718,15 @@ class Draft {
             core.setFailed(`Failed to parse front matter in file: ${this.path}`);
             return;
         }
+        let hasRequiredFrontMatter = true;
         for (const field of this.requiredFrontMatter) {
             if (parsed[field] === undefined) {
+                hasRequiredFrontMatter = false;
                 core.setFailed(`Draft ${this.path} is missing required field: ${field}`);
-                return;
             }
+        }
+        if (!hasRequiredFrontMatter) {
+            return;
         }
         const repoParts = parsed.repository.split('/');
         const parsedDate = chrono.parseDate(parsed.date);
