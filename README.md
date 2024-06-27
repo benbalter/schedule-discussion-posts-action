@@ -112,7 +112,7 @@ The following front matter fields are supported:
   will do its best to parse most common formats. When in doubt, ISO 8601 is your
   friend.
 - `repository` (required): The target repository where the discussion post will
-  be created. Must be in the format `owner/repo`.
+  be created. Must be in the format `owner/repository`.
 - `category` (required): The category of the discussion post.
 - `labels` (optional): A comma-separated list of labels to apply to the
   discussion post.
