@@ -241,7 +241,7 @@ export class Draft {
     }
     core.debug(`Repository ID: ${repoId}`)
 
-    if (core.getInput('dry_run') === 'false') {
+    if (core.getInput('dry_run') !== 'true') {
       core.info(`Publishing post: ${this.title}`)
       const variables = {
         repositoryId: repoId,
