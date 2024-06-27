@@ -116,6 +116,7 @@ The following front matter fields are supported:
 - `category` (required): The category of the discussion post.
 - `labels` (optional): A comma-separated list of labels to apply to the
   discussion post.
+- `author` (optional): The GitHub handle of the author of the post. Defaults to the owner of the `DISCUSSION_TOKEN`.
 
 Note: Setting labels is not yet implemented due to restrictions with the GitHub
 API.
@@ -189,3 +190,35 @@ The Action accepts the following `with:` parameters:
   `false`.
 - `files` (optional): A JSON-formatted array of files to parse. Defaults to all
   `.md` files in the repository root.
+
+### Multiple authors
+
+By default, the action will use the `DISCUSSION_TOKEN` secret to create the discussion post (which will be authored by the user who created the token). If you want to specify a different author, you can add an `author` field to the front matter of the draft post with their handle. For example:
+
+```markdown
+---
+title: Another important post, authored by someone else
+date: 2021-10-01T12:00:00Z
+repositotry: github/schedule-discussion-post-action
+category: General
+author: hubot
+---
+```
+
+You will then need to follow the instructions above to create a Personal Access Token for that user and add it to the repository secrets as `DISCUSSION_TOKEN_$HANDLE` (in this case, `DISCUSSION_TOKEN_HUBOT`).
+
+Finally, you will need to update the Action configuration to pass the additional token. For example:
+
+```yaml
+jobs:
+  schedule-discussion-post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: benbalter/schedule-discussion-post-action@main
+        with:
+          discussion_token: ${{ secrets.DISCUSSION_TOKEN }} # The default token used when no author is specified
+          discussion_token_hubot: ${{ secrets.DISCUSSION_TOKEN_HUBOT }} # The token to use when the author is hubot
+```
+
+You may add as many authors to a repository as you'd like, each with their own token. The Action will use the appropriate token based on the author specified in the draft post. If the author specified does not have a corresponding token, the Action will try to use the default token, but will warn you that the author is not set up correctly when you do a dry run.
