@@ -29955,7 +29955,8 @@ const fs = __importStar(__nccwpck_require__(7147));
 const draft_1 = __nccwpck_require__(3351);
 function getDrafts() {
     const files = fs.readdirSync('./');
-    const drafts = files.filter(file => file.endsWith('.md'));
+    let drafts = files.filter(file => file.endsWith('.md'));
+    drafts = drafts.filter(draft => !draft.match(/README\.md/i));
     return drafts.map(file => new draft_1.Draft(file));
 }
 function getChangedFiles() {
@@ -29963,7 +29964,8 @@ function getChangedFiles() {
     if (json === '') {
         return [];
     }
-    const paths = JSON.parse(json);
+    let paths = JSON.parse(json);
+    paths = paths.filter(draft => !draft.match(/README\.md/i));
     return paths.map(file => new draft_1.Draft(file));
 }
 async function cron() {
@@ -29979,10 +29981,8 @@ async function cron() {
     else {
         drafts = getDrafts();
     }
-    // Don't check changes to README.md
-    drafts = drafts.filter(draft => !draft.path.match(/README\.md/i));
-    core.info(`Found ${drafts.length} drafts`);
     const pathsToProcess = drafts.map(draft => draft.path);
+    core.info(`Found ${drafts.length} drafts`);
     core.info(`Processing drafts: ${pathsToProcess.join(', ')}`);
     for (const draft of drafts) {
         if (!draft.isPast && dryRun === 'false') {
