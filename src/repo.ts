@@ -105,10 +105,16 @@ export class Repository {
       owner: this.owner,
       name: this.name
     }
-    const response: GraphQlQueryResponseData = await this.octokit.graphql(
-      discussionCategoryQuery,
-      variables
-    )
+
+    let response: GraphQlQueryResponseData
+    try {
+      response = await this.octokit.graphql(discussionCategoryQuery, variables)
+    } catch (error) {
+      core.setFailed(
+        `Failed to get categories for repository: ${this.name} (${error})`
+      )
+      return
+    }
 
     const categories: { name: string; id: string }[] =
       response.repository.discussionCategories.nodes

@@ -30215,7 +30215,14 @@ class Repository {
             owner: this.owner,
             name: this.name
         };
-        const response = await this.octokit.graphql(discussionCategoryQuery, variables);
+        let response;
+        try {
+            response = await this.octokit.graphql(discussionCategoryQuery, variables);
+        }
+        catch (error) {
+            core.setFailed(`Failed to get categories for repository: ${this.name} (${error})`);
+            return;
+        }
         const categories = response.repository.discussionCategories.nodes;
         const category = categories.find(cat => cat.name === name);
         if (category === undefined) {
