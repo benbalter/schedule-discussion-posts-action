@@ -30086,7 +30086,7 @@ exports.octokit = github.getOctokit(discussionToken, options);
 // Octokit instance with the default Actions token for the current repo
 exports.repoOctokit = github.getOctokit(repoToken, options);
 function octokitForAuthor(author) {
-    author = author.replaceAll(/-/, '_');
+    author = author.replaceAll(/-/g, '_');
     const token = core.getInput(`discussion_token_${author}`);
     if (token === '') {
         core.setFailed(`"discussion_token_${author}" is required to post as ${author}.`);
