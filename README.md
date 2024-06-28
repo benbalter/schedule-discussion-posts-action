@@ -78,8 +78,8 @@ This will run approximately on the top of the hour, every hour to check for
 posts to pubish. You can use tools like `crontab.guru` to adjust the schedule to
 your liking.
 
-Pro-tip: If this is a new repository, be sure to enable Discussions via the
-settings.
+> [!TIP] If this is a new repository, be sure to enable Discussions via the
+> settings.
 
 ## Step 2: Add a Personal Access Token to the repository secrets
 
@@ -99,11 +99,11 @@ Access Token:
 1. Save the token as a secret (`DISCUSSION_TOKEN`) in the repository where you
    set up the Action.
 
-Note: You can optionally create a legacy PAT which would not have an expiration
-date, but that would grant discussion read/write access to all repositories that
-the author has access to.
+> [!NOTE] You can optionally create a legacy PAT which would not have an
+> expiration date, but that would grant discussion read/write access to all
+> repositories that the author has access to.
 
-Pro-tip: Set a calendar reminder to roll the token prior to the expiration date.
+> [!TIP] Set a calendar reminder to roll the token prior to the expiration date.
 
 ## Step 3: Create a draft discussion post
 
@@ -124,8 +124,9 @@ labels: announcement, engineering
 Body of the post here in standard Markdown.
 ```
 
-Note: You do not (and should not) include the title in the body of the draft as
-an H1. Instead, add it to the front matter so that it can be set appropriately.
+> [!NOTE] You do not (and should not) include the title in the body of the draft
+> as an H1. Instead, add it to the front matter so that it can be set
+> appropriately.
 
 The following front matter fields are supported:
 
@@ -141,8 +142,8 @@ The following front matter fields are supported:
 - `author` (optional): The GitHub handle of the author of the post. Defaults to
   the owner of the `DISCUSSION_TOKEN`.
 
-Note: Setting labels is not yet implemented due to restrictions with the GitHub
-API.
+> [!NOTE] Setting labels is not yet implemented due to restrictions with the
+> GitHub API.
 
 ## But what if I did something wrong? (Optional)
 
@@ -192,8 +193,8 @@ If there are any issues, the Action will fail and provide feedback on what needs
 to be fixed. This should catch most issues giving you confidence that the post
 will be created as expected.
 
-Note: This Workflow file assumes you're using a pull request workflow. If you're
-not, adjust the `on` trigger accordingly (example: on push to `main`).
+> [!NOTE] This Workflow file assumes you're using a pull request workflow. If
+> you're not, adjust the `on` trigger accordingly (example: on push to `main`).
 
 Example Lint output:
 
@@ -259,8 +260,8 @@ in the draft post. If the author specified does not have a corresponding token,
 the Action will try to use the default token, but will warn you that the author
 is not set up correctly when you do a dry run.
 
-Note: If the author's handle has `-` in it, replace the `-` with `_` when naming
-the secret as GitHub Actions does not allow `-`s in secret names.
+> [!NOTE] If the author's handle has `-` in it, replace the `-` with `_` when
+> naming the secret as GitHub Actions does not allow `-`s in secret names.
 
 ## Troubleshooting
 
