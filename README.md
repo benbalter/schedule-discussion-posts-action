@@ -239,6 +239,8 @@ in the draft post. If the author specified does not have a corresponding token,
 the Action will try to use the default token, but will warn you that the author
 is not set up correctly when you do a dry run.
 
+Note: If the author's handle has `-` in it, replace the `-` with `_` when naming the secret as GitHub Actions does not allow `-`s in secret names.
+
 ## Troubleshooting
 
 If you encounter any issues, please check the following:
