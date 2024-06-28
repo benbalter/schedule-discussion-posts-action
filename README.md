@@ -2,6 +2,17 @@
 
 This action will create a discussion post in a repository at a scheduled time.
 
+## Why would I use this?
+
+1. You want to schedule a Discusion post to go live at a specific time in the
+   future (examples: announcements, weekly updates, when you're out of office,
+   etc.)
+1. You want to post a Discussion post on behalf of someone else (example:
+   posting on behalf of an executive)
+1. You want to coordinate a "comms cascade" creation of a post across multiple
+   repositories (example: a cross-organizational announcement made my multiple
+   authors in multiple repos, with messages tailored to each audience)
+
 ## Usage
 
 Setting up the action requires three steps (described in detail below):
