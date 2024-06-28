@@ -30003,7 +30003,7 @@ async function cron() {
             continue;
         }
         if (await draft.isPublished()) {
-            core.info(`draft ${draft.title} is already published`);
+            core.warning(`draft ${draft.title} is already published`);
             continue;
         }
         await draft.publish();
@@ -30195,17 +30195,12 @@ class Repository {
                 return;
             }
             else {
-                core.warning(`🛑 Found existing discussion with title "${title}" and date ${date}: ${results[0].url}`);
+                core.setFailed(`🛑 Found existing discussion with title "${title}" and date ${date}: ${results[0].url}`);
             }
             return results[0];
         }
         catch (error) {
-            if (core.getInput('dry_run') === 'true') {
-                core.warning(`Could not check if discussion ${title} already exists: (${error})`);
-            }
-            else {
-                core.setFailed(`Failed to search for discussion: ${title} (${error})`);
-            }
+            core.setFailed(`Failed to search for discussion: ${title} (${error})`);
             return;
         }
     }

@@ -49,7 +49,7 @@ async function cron(): Promise<void> {
     }
 
     if (await draft.isPublished()) {
-      core.info(`draft ${draft.title} is already published`)
+      core.warning(`draft ${draft.title} is already published`)
       continue
     }
 
