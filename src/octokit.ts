@@ -40,7 +40,7 @@ export const octokit = github.getOctokit(discussionToken, options)
 export const repoOctokit = github.getOctokit(repoToken, options)
 
 export function octokitForAuthor(author: string): undefined | typeof octokit {
-  author = author.replace(/-/, '_')
+  author = author.replaceAll(/-/, '_')
   const token = core.getInput(`discussion_token_${author}`)
   if (token === '') {
     core.setFailed(
