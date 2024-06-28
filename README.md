@@ -238,3 +238,11 @@ token. The Action will use the appropriate token based on the author specified
 in the draft post. If the author specified does not have a corresponding token,
 the Action will try to use the default token, but will warn you that the author
 is not set up correctly when you do a dry run.
+
+## Troubleshooting
+
+If you encounter any issues, please check the following:
+
+1. Re-run the action with debug logging enabled
+1. Ensure branch protection rules / rulesets are not preventing the action from
+   deleting the post once published
