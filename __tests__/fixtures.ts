@@ -154,13 +154,20 @@ export function mockFileDeletion(options?: {
   url?: string
   sha?: string
   token: string
+  path?: string
+  publishedUrl?: string
 }): { getMock: typeof sandbox.mock; deleteMock: typeof sandbox.mock } {
   const defaults = {
     url: 'https://api.github.com/repos/owner/repo/contents/.%2F__tests__%2Ffixtures%2Fdraft.md',
     sha: 'sha123',
-    token: 'REPO_TOKEN'
+    token: 'REPO_TOKEN',
+    path: './__tests__/fixtures/draft.md',
+    publishedUrl: 'https://github.com/owner/repo/discussions/1'
   }
-  const { url, sha, token } = { ...defaults, ...options }
+  const { url, sha, token, path, publishedUrl } = { ...defaults, ...options }
+  const message = `Delete ${path}
+    
+    The post has been published as ${publishedUrl}`
 
   const getMock = sandbox.mock(
     {
@@ -175,7 +182,10 @@ export function mockFileDeletion(options?: {
   const deleteMock = sandbox.mock(
     {
       url,
-      //TODO: Validate SHA and message
+      body: {
+        message,
+        sha
+      },
       method: 'DELETE',
       headers: {
         authorization: `token ${token}`

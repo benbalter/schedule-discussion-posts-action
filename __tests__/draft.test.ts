@@ -49,6 +49,7 @@ describe('draft', () => {
   it('should delete', async () => {
     const { getMock, deleteMock } = mockFileDeletion()
     const draft = new Draft('./__tests__/fixtures/draft.md')
+    draft.url = 'https://github.com/owner/repo/discussions/1'
     await draft.delete()
     expect(getMock.called()).toBe(true)
     expect(deleteMock.called()).toBe(true)
