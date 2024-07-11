@@ -52,7 +52,7 @@ name: Schedule Discussion Posts
 on:
   # Check for drafts to post every hour at the top of the hour
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 * * * *'
 
   # Optional, allows you to post on demand
   push:
