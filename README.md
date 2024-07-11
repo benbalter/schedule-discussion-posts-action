@@ -184,6 +184,7 @@ jobs:
         with:
           dry_run: true
           files: ${{ steps.changed-markdown-files.outputs.all_changed_files }}
+          discussion_token: ${{ secrets.DISCUSSION_TOKEN }}
 ```
 
 This will run through the entire process of parsing and validating any changed
