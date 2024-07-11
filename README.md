@@ -69,7 +69,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: benbalter/schedule-discussion-post-action@main
+      - uses: benbalter/schedule-discussion-posts-action@main
         with:
           discussion_token: ${{ secrets.DISCUSSION_TOKEN }}
 ```
