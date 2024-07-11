@@ -116,7 +116,7 @@ fields at the top. Here's an example:
 ---
 title: An important post
 date: 2021-10-01T12:00:00Z
-repositotry: github/schedule-discussion-post-action
+repository: github/schedule-discussion-post-action
 category: General
 labels: announcement, engineering
 ---
