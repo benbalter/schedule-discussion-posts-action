@@ -73,7 +73,7 @@
     "chrono-node": "^2.7.6",
     "dotenv": "^16.4.5",
     "fetch-mock": "^10.0.7",
-    "yaml": "^2.4.5"
+    "yaml": "^2.5.0"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",
