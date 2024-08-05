@@ -72,7 +72,7 @@
     "@actions/github": "^6.0.0",
     "chrono-node": "^2.7.6",
     "dotenv": "^16.4.5",
-    "fetch-mock": "^10.0.7",
+    "fetch-mock": "^11.0.0",
     "yaml": "^2.4.5"
   },
   "devDependencies": {
