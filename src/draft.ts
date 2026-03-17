@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 import * as core from '@actions/core'
+import * as github from '@actions/github'
 import { parse } from 'yaml'
 import { octokit, repoOctokit, octokitForAuthor } from './octokit'
 import { Repository } from './repo'
@@ -145,17 +146,14 @@ export class Draft {
   async delete(): Promise<void> {
     core.debug(`Deleting draft: ${this.path}`)
 
-    if (this.repository === undefined) {
-      core.setFailed('Repository is undefined. Cannot delete draft.')
-      return
-    }
+    const { owner, repo } = github.context.repo
 
     let sha: string
 
     try {
       const response = await repoOctokit.rest.repos.getContent({
-        owner: this.repository.owner,
-        repo: this.repository.name,
+        owner,
+        repo,
         path: this.path
       })
 
@@ -180,8 +178,8 @@ export class Draft {
 
     try {
       await repoOctokit.rest.repos.deleteFile({
-        owner: this.repository.owner,
-        repo: this.repository.name,
+        owner,
+        repo,
         path: this.path,
         message,
         sha

@@ -29671,6 +29671,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.Draft = void 0;
 const fs = __importStar(__nccwpck_require__(7147));
 const core = __importStar(__nccwpck_require__(2186));
+const github = __importStar(__nccwpck_require__(5438));
 const yaml_1 = __nccwpck_require__(4083);
 const octokit_1 = __nccwpck_require__(6161);
 const repo_1 = __nccwpck_require__(1413);
@@ -29791,15 +29792,12 @@ class Draft {
     }
     async delete() {
         core.debug(`Deleting draft: ${this.path}`);
-        if (this.repository === undefined) {
-            core.setFailed('Repository is undefined. Cannot delete draft.');
-            return;
-        }
+        const { owner, repo } = github.context.repo;
         let sha;
         try {
             const response = await octokit_1.repoOctokit.rest.repos.getContent({
-                owner: this.repository.owner,
-                repo: this.repository.name,
+                owner,
+                repo,
                 path: this.path
             });
             sha = Array.isArray(response.data)
@@ -29820,8 +29818,8 @@ class Draft {
         }
         try {
             await octokit_1.repoOctokit.rest.repos.deleteFile({
-                owner: this.repository.owner,
-                repo: this.repository.name,
+                owner,
+                repo,
                 path: this.path,
                 message,
                 sha

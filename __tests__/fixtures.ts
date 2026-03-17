@@ -158,7 +158,7 @@ export function mockFileDeletion(options?: {
   publishedUrl?: string
 }): { getMock: typeof sandbox.mock; deleteMock: typeof sandbox.mock } {
   const defaults = {
-    url: 'https://api.github.com/repos/owner/repo/contents/.%2F__tests__%2Ffixtures%2Fdraft.md',
+    url: 'https://api.github.com/repos/source-owner/source-repo/contents/.%2F__tests__%2Ffixtures%2Fdraft.md',
     sha: 'sha123',
     token: 'REPO_TOKEN',
     path: './__tests__/fixtures/draft.md',

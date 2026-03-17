@@ -13,6 +13,7 @@ import {
 describe('draft', () => {
   beforeEach(() => {
     sandbox.restore()
+    process.env.GITHUB_REPOSITORY = 'source-owner/source-repo'
   })
 
   it('should read the contents', () => {
