@@ -1,6 +1,6 @@
 import { sandbox } from '../src/octokit'
 import { Repository } from '../src/repo'
-import { mockLabel, mockRepo, mockCategory, mockPost } from './fixtures'
+import { mockLabel, mockRepo, mockCategory, mockPost, mockGraphQL } from './fixtures'
 
 describe('Repo', () => {
   beforeEach(() => {
@@ -82,5 +82,55 @@ describe('Repo', () => {
     const repo = new Repository(owner, name)
     expect(repo.owner).toBe(owner)
     expect(repo.name).toBe(name)
+  })
+
+  describe('validate', () => {
+    it('returns true when repo is accessible', async () => {
+      const repo = new Repository('owner', 'repo')
+      mockRepo()
+      const result = await repo.validate()
+      expect(result).toBe(true)
+    })
+
+    it('returns false when repo is not accessible', async () => {
+      const repo = new Repository('owner', 'repo')
+      sandbox.mock(
+        {
+          url: 'https://api.github.com/repos/owner/repo',
+          headers: { authorization: 'token TOKEN' }
+        },
+        { status: 404, body: { message: 'Not Found' } }
+      )
+      const result = await repo.validate()
+      expect(result).toBe(false)
+    })
+  })
+
+  describe('pinDiscussion', () => {
+    it('calls the GraphQL mutation successfully', async () => {
+      const repo = new Repository('owner', 'repo')
+      const mock = mockGraphQL(
+        { data: { pinDiscussion: { discussion: { id: 'disc123' } } } },
+        'pinDiscussion',
+        'pinDiscussion'
+      )
+      await repo.pinDiscussion('disc123')
+      expect(mock.called()).toBe(true)
+    })
+
+    it('handles errors gracefully', async () => {
+      const repo = new Repository('owner', 'repo')
+      sandbox.mock(
+        {
+          method: 'POST',
+          url: 'https://api.github.com/graphql',
+          name: 'pinDiscussionFail',
+          headers: { authorization: 'token TOKEN' }
+        },
+        { status: 500, body: { message: 'Server Error' } }
+      )
+      // Should not throw
+      await expect(repo.pinDiscussion('disc123')).resolves.toBeUndefined()
+    })
   })
 })

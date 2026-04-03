@@ -64,7 +64,9 @@ function getChangedFiles(): Draft[] {
     return []
   }
 
-  paths = paths.filter(draft => !draft.match(/README\.md/i))
+  paths = paths
+    .filter((p): p is string => typeof p === 'string')
+    .filter(draft => !draft.match(/README\.md/i))
   return paths.map(file => new Draft(file))
 }
 
@@ -165,17 +167,26 @@ async function cron(): Promise<void> {
     }
 
     await draft.publish()
-    publishedCount++
+
     if (draft.url) {
+      publishedCount++
       publishedUrls.push(draft.url)
+      results.push({
+        path: draft.path,
+        title: draft.title || draft.path,
+        status: 'published',
+        url: draft.url,
+        targetRepo: `${draft.repository?.owner}/${draft.repository?.name}`
+      })
+    } else {
+      skippedCount++
+      results.push({
+        path: draft.path,
+        title: draft.title || draft.path,
+        status: 'invalid',
+        targetRepo: `${draft.repository?.owner}/${draft.repository?.name}`
+      })
     }
-    results.push({
-      path: draft.path,
-      title: draft.title || draft.path,
-      status: 'published',
-      url: draft.url,
-      targetRepo: `${draft.repository?.owner}/${draft.repository?.name}`
-    })
   }
 
   core.setOutput('published_count', publishedCount.toString())

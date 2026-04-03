@@ -57,6 +57,47 @@ describe('draft', () => {
     expect(draft.valid).toBe(false)
   })
 
+  describe('interpolateVariables', () => {
+    it('replaces known variables', () => {
+      const draft = new Draft('./__tests__/fixtures/draft.md')
+      const result = draft.interpolateVariables(
+        '{{title}} in {{category}} of {{repository}}'
+      )
+      expect(result).toBe('Draft post in General of owner/repo')
+    })
+
+    it('leaves unknown variables untouched', () => {
+      const draft = new Draft('./__tests__/fixtures/draft.md')
+      const result = draft.interpolateVariables('Hello {{unknown}}')
+      expect(result).toBe('Hello {{unknown}}')
+    })
+
+    it('handles undefined body', () => {
+      const draft = new Draft('./__tests__/fixtures/draft.md')
+      const result = draft.interpolateVariables(undefined)
+      expect(result).toBeUndefined()
+    })
+  })
+
+  describe('pin field', () => {
+    it('parses pin: true from front matter', () => {
+      const draft = new Draft('./__tests__/fixtures/pinned.md')
+      expect(draft.pin).toBe(true)
+    })
+
+    it('defaults pin to false when not specified', () => {
+      const draft = new Draft('./__tests__/fixtures/draft.md')
+      expect(draft.pin).toBe(false)
+    })
+  })
+
+  describe('YAML array labels', () => {
+    it('parses labels as an array', () => {
+      const draft = new Draft('./__tests__/fixtures/array-labels.md')
+      expect(draft.labels).toEqual(['bug', 'feature'])
+    })
+  })
+
   it('should delete', async () => {
     const { getMock, deleteMock } = mockFileDeletion()
     const draft = new Draft('./__tests__/fixtures/draft.md')

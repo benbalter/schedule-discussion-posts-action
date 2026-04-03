@@ -29759,9 +29759,12 @@ class Draft {
         this.category = parsed.category;
         this.author = parsed.author?.replace('@', '');
         if (parsed.labels !== undefined) {
-            this.labels = (parsed.label || parsed.labels)
-                .split(',')
-                .map((label) => label.trim());
+            const rawLabels = parsed.label || parsed.labels;
+            this.labels = Array.isArray(rawLabels)
+                ? rawLabels.map((label) => String(label).trim())
+                : String(rawLabels)
+                    .split(',')
+                    .map((label) => label.trim());
         }
         else {
             this.labels = [];
@@ -29863,19 +29866,23 @@ class Draft {
             core.setFailed('Repository is undefined. Cannot set labels.');
             return;
         }
-        if (this.id === undefined) {
-            core.setFailed('Discussion ID is undefined. Cannot set labels.');
-            return;
-        }
         if (this.labels.length === 0) {
             core.info('No labels to set');
             return;
         }
-        const labelIds = await Promise.all(this.labels.map(async (label) => {
-            return await this.repository?.getLabelId(label);
-        }));
         if (core.getInput('dry_run') === 'true') {
             core.info(`Dry run enabled. Skipping setting labels. Would have set: ${this.labels}`);
+            return;
+        }
+        if (this.id === undefined) {
+            core.setFailed('Discussion ID is undefined. Cannot set labels.');
+            return;
+        }
+        const labelIds = (await Promise.all(this.labels.map(async (label) => {
+            return await this.repository?.getLabelId(label);
+        }))).filter((id) => id !== undefined);
+        if (labelIds.length === 0) {
+            core.warning('No valid label IDs found. Skipping label assignment.');
             return;
         }
         const variables = {
@@ -29921,6 +29928,8 @@ class Draft {
             if (this.pin && this.id && this.repository) {
                 await this.repository.pinDiscussion(this.id);
             }
+            await this.addLabels();
+            await this.delete();
         }
         else {
             core.info(`Dry run enabled. Skipping publishing post: ${this.title}`);
@@ -29931,9 +29940,9 @@ class Draft {
             if (this.repository) {
                 await this.repository.validate();
             }
+            // Validate labels exist during dry run
+            await this.addLabels();
         }
-        await this.addLabels();
-        await this.delete();
         return this.id;
     }
     get isPast() {
@@ -30043,7 +30052,9 @@ function getChangedFiles() {
         core.setFailed(`'files' input must be a JSON array of file paths, got: ${typeof paths}`);
         return [];
     }
-    paths = paths.filter(draft => !draft.match(/README\.md/i));
+    paths = paths
+        .filter((p) => typeof p === 'string')
+        .filter(draft => !draft.match(/README\.md/i));
     return paths.map(file => new draft_1.Draft(file));
 }
 async function writeSummary(results) {
@@ -30125,17 +30136,26 @@ async function cron() {
             continue;
         }
         await draft.publish();
-        publishedCount++;
         if (draft.url) {
+            publishedCount++;
             publishedUrls.push(draft.url);
+            results.push({
+                path: draft.path,
+                title: draft.title || draft.path,
+                status: 'published',
+                url: draft.url,
+                targetRepo: `${draft.repository?.owner}/${draft.repository?.name}`
+            });
         }
-        results.push({
-            path: draft.path,
-            title: draft.title || draft.path,
-            status: 'published',
-            url: draft.url,
-            targetRepo: `${draft.repository?.owner}/${draft.repository?.name}`
-        });
+        else {
+            skippedCount++;
+            results.push({
+                path: draft.path,
+                title: draft.title || draft.path,
+                status: 'invalid',
+                targetRepo: `${draft.repository?.owner}/${draft.repository?.name}`
+            });
+        }
     }
     core.setOutput('published_count', publishedCount.toString());
     core.setOutput('skipped_count', skippedCount.toString());

@@ -99,9 +99,12 @@ export class Draft {
     this.author = parsed.author?.replace('@', '')
 
     if (parsed.labels !== undefined) {
-      this.labels = (parsed.label || parsed.labels)
-        .split(',')
-        .map((label: string) => label.trim())
+      const rawLabels = parsed.label || parsed.labels
+      this.labels = Array.isArray(rawLabels)
+        ? rawLabels.map((label: string) => String(label).trim())
+        : String(rawLabels)
+            .split(',')
+            .map((label: string) => label.trim())
     } else {
       this.labels = []
     }
@@ -225,26 +228,33 @@ export class Draft {
       return
     }
 
-    if (this.id === undefined) {
-      core.setFailed('Discussion ID is undefined. Cannot set labels.')
-      return
-    }
-
     if (this.labels.length === 0) {
       core.info('No labels to set')
       return
     }
 
-    const labelIds = await Promise.all(
-      this.labels.map(async label => {
-        return await this.repository?.getLabelId(label)
-      })
-    )
-
     if (core.getInput('dry_run') === 'true') {
       core.info(
         `Dry run enabled. Skipping setting labels. Would have set: ${this.labels}`
       )
+      return
+    }
+
+    if (this.id === undefined) {
+      core.setFailed('Discussion ID is undefined. Cannot set labels.')
+      return
+    }
+
+    const labelIds = (
+      await Promise.all(
+        this.labels.map(async label => {
+          return await this.repository?.getLabelId(label)
+        })
+      )
+    ).filter((id): id is string => id !== undefined)
+
+    if (labelIds.length === 0) {
+      core.warning('No valid label IDs found. Skipping label assignment.')
       return
     }
 
@@ -301,6 +311,9 @@ export class Draft {
       if (this.pin && this.id && this.repository) {
         await this.repository.pinDiscussion(this.id)
       }
+
+      await this.addLabels()
+      await this.delete()
     } else {
       core.info(`Dry run enabled. Skipping publishing post: ${this.title}`)
       if (this.pin) {
@@ -311,10 +324,10 @@ export class Draft {
       if (this.repository) {
         await this.repository.validate()
       }
-    }
 
-    await this.addLabels()
-    await this.delete()
+      // Validate labels exist during dry run
+      await this.addLabels()
+    }
 
     return this.id
   }
