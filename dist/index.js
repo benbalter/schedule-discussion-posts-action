@@ -29727,14 +29727,14 @@ class Draft {
         this.contents = this.readContents();
         const parsed = this.parseFrontMatter();
         if (parsed === undefined) {
-            core.setFailed(`Failed to parse front matter in file: ${this.path}`);
+            core.setFailed(`Could not parse the metadata block in ${this.path}. Ensure the file starts with --- on its own line, followed by the metadata fields, followed by --- on its own line.`);
             return;
         }
         let hasRequiredFrontMatter = true;
         for (const field of this.requiredFrontMatter) {
             if (parsed[field] === undefined) {
                 hasRequiredFrontMatter = false;
-                core.setFailed(`Draft ${this.path} is missing required field: ${field}`);
+                core.setFailed(`Draft ${this.path} is missing required field: "${field}". Add it to the metadata block at the top of the file.`);
             }
         }
         if (!hasRequiredFrontMatter) {
@@ -29742,13 +29742,13 @@ class Draft {
         }
         const parsedDate = chrono.parseDate(parsed.date);
         if (parsedDate === null) {
-            core.setFailed(`Failed to parse date in draft: ${this.path}`);
+            core.setFailed(`Could not understand the date "${parsed.date}" in ${this.path}. Try ISO 8601 format (e.g., 2024-01-15T14:30:00Z) or plain English (e.g., "January 15, 2024 at 2:30 PM EST").`);
             return;
         }
         core.info(`${this.path} has date: ${parsedDate}`);
         const repoParts = parsed.repository?.split('/');
         if (repoParts === undefined || repoParts.length !== 2) {
-            core.setFailed(`Failed to parse repository in draft: ${this.path}`);
+            core.setFailed(`Invalid repository format in ${this.path}: "${parsed.repository}". Use the format "owner/name" (e.g., "github/docs").`);
             return;
         }
         this.repository = new repo_1.Repository(repoParts[0], repoParts[1], parsed.author);
@@ -29788,7 +29788,7 @@ class Draft {
             return fs.readFileSync(this.path, 'utf8');
         }
         catch (error) {
-            core.setFailed(`Failed to read draft: ${this.path} (${error})`);
+            core.setFailed(`Cannot find or read file "${this.path}". Check that the filename is spelled correctly and exists in the repository.`);
         }
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29798,7 +29798,7 @@ class Draft {
         }
         const frontMatter = this.contents.match(/^---[ \t]*\r?\n([\s\S]+?)\r?\n---[ \t]*\r?\n/);
         if (!frontMatter) {
-            core.setFailed(`Failed to parse front matter in draft: ${this.path}`);
+            core.setFailed(`Could not find a metadata block in ${this.path}. The file must start with "---" on the first line, followed by metadata fields (title, date, repository, category), and closed with "---" on its own line.`);
             return;
         }
         const parsed = (0, yaml_1.parse)(frontMatter[1]);
@@ -29899,17 +29899,18 @@ class Draft {
     }
     async publish() {
         if (this.category === undefined) {
-            core.setFailed('Category is undefined. Cannot publish post.');
+            core.setFailed(`No category specified for "${this.title}". Add a "category" field to the metadata block.`);
             return;
         }
         const categoryId = await this.repository?.getCategoryId(this.category);
         if (categoryId === undefined) {
+            core.setFailed(`Category "${this.category}" was not found in ${this.repository?.owner}/${this.repository?.name}. Go to the target repository's Discussions tab to see available categories.`);
             return;
         }
         core.debug(`Category ID: ${categoryId}`);
         const repoId = await this.repository?.getId();
         if (repoId === undefined) {
-            core.setFailed('Repository ID is undefined. Cannot publish post.');
+            core.setFailed(`Unable to access repository ${this.repository?.owner}/${this.repository?.name}. Check that the repository exists, your Personal Access Token has access to it, and Discussions are enabled.`);
             return;
         }
         core.debug(`Repository ID: ${repoId}`);
@@ -30243,7 +30244,7 @@ function octokitForAuthor(author) {
     author = author.replaceAll(/-/g, '_');
     const token = core.getInput(`discussion_token_${author}`);
     if (token === '') {
-        core.setFailed(`"discussion_token_${author}" is required to post as ${author}.`);
+        core.setFailed(`To post as "${author}", add a secret named "discussion_token_${author}" to your repository. See the README for setup instructions.`);
         return;
     }
     return github.getOctokit(token, options);
@@ -30359,7 +30360,7 @@ class Repository {
             return label.node_id;
         }
         catch (error) {
-            core.setFailed(`Failed to get label: ${name} (${error})`);
+            core.setFailed(`Label "${name}" was not found in ${this.owner}/${this.name}. Create it in the repository's Labels settings, or remove it from the draft metadata.`);
             return;
         }
     }
@@ -30395,13 +30396,14 @@ class Repository {
             response = await this.octokit.graphql(discussionCategoryQuery, variables);
         }
         catch (error) {
-            core.setFailed(`Failed to get categories for repository: ${this.name} (${error})`);
+            core.setFailed(`Cannot access ${this.owner}/${this.name}. Check that: (1) the repository exists, (2) your Personal Access Token has access, (3) Discussions are enabled in the repository settings.`);
             return;
         }
         const categories = response.repository.discussionCategories.nodes;
         const category = categories.find(cat => cat.name === name);
+        const availableNames = categories.map(cat => cat.name).join(', ');
         if (category === undefined) {
-            core.setFailed(`Failed to find category: ${name}`);
+            core.setFailed(`Category "${name}" does not exist in ${this.owner}/${this.name}. Available categories: ${availableNames}`);
             return;
         }
         return category.id;
@@ -30416,7 +30418,7 @@ class Repository {
             return repo.node_id;
         }
         catch (error) {
-            core.setFailed(`Failed to get repository: ${this.name} (${error})`);
+            core.setFailed(`Unable to access repository ${this.owner}/${this.name}. Check that the repository exists and your Personal Access Token has access to it.`);
             return;
         }
     }
@@ -30427,7 +30429,7 @@ class Repository {
             core.info('Discussion pinned successfully');
         }
         catch (error) {
-            core.warning(`Failed to pin discussion: ${error}`);
+            core.warning(`Could not pin the discussion. This may require additional permissions on your Personal Access Token. The post was still published successfully.`);
         }
     }
     async validate() {
@@ -30440,7 +30442,7 @@ class Repository {
             core.info(`✅ Repository ${this.owner}/${this.name} exists and is accessible`);
         }
         catch (error) {
-            core.setFailed(`❌ Cannot access repository ${this.owner}/${this.name}: ${error}`);
+            core.setFailed(`❌ Cannot access repository ${this.owner}/${this.name}. Check that: (1) the repository exists, (2) your Personal Access Token has access, (3) Discussions are enabled.`);
             valid = false;
         }
         return valid;

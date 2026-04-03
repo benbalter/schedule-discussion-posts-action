@@ -69,7 +69,9 @@ export class Repository {
       })
       return label.node_id
     } catch (error) {
-      core.setFailed(`Failed to get label: ${name} (${error})`)
+      core.setFailed(
+        `Label "${name}" was not found in ${this.owner}/${this.name}. Create it in the repository's Labels settings, or remove it from the draft metadata.`
+      )
       return
     }
   }
@@ -117,7 +119,7 @@ export class Repository {
       response = await this.octokit.graphql(discussionCategoryQuery, variables)
     } catch (error) {
       core.setFailed(
-        `Failed to get categories for repository: ${this.name} (${error})`
+        `Cannot access ${this.owner}/${this.name}. Check that: (1) the repository exists, (2) your Personal Access Token has access, (3) Discussions are enabled in the repository settings.`
       )
       return
     }
@@ -125,9 +127,12 @@ export class Repository {
     const categories: { name: string; id: string }[] =
       response.repository.discussionCategories.nodes
     const category = categories.find(cat => cat.name === name)
+    const availableNames = categories.map(cat => cat.name).join(', ')
 
     if (category === undefined) {
-      core.setFailed(`Failed to find category: ${name}`)
+      core.setFailed(
+        `Category "${name}" does not exist in ${this.owner}/${this.name}. Available categories: ${availableNames}`
+      )
       return
     }
 
@@ -143,7 +148,9 @@ export class Repository {
       })
       return repo.node_id
     } catch (error) {
-      core.setFailed(`Failed to get repository: ${this.name} (${error})`)
+      core.setFailed(
+        `Unable to access repository ${this.owner}/${this.name}. Check that the repository exists and your Personal Access Token has access to it.`
+      )
       return
     }
   }
@@ -154,7 +161,9 @@ export class Repository {
       await this.octokit.graphql(pinDiscussionMutation, { discussionId })
       core.info('Discussion pinned successfully')
     } catch (error) {
-      core.warning(`Failed to pin discussion: ${error}`)
+      core.warning(
+        `Could not pin the discussion. This may require additional permissions on your Personal Access Token. The post was still published successfully.`
+      )
     }
   }
 
@@ -169,7 +178,7 @@ export class Repository {
       core.info(`✅ Repository ${this.owner}/${this.name} exists and is accessible`)
     } catch (error) {
       core.setFailed(
-        `❌ Cannot access repository ${this.owner}/${this.name}: ${error}`
+        `❌ Cannot access repository ${this.owner}/${this.name}. Check that: (1) the repository exists, (2) your Personal Access Token has access, (3) Discussions are enabled.`
       )
       valid = false
     }

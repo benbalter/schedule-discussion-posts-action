@@ -44,7 +44,7 @@ export function octokitForAuthor(author: string): undefined | typeof octokit {
   const token = core.getInput(`discussion_token_${author}`)
   if (token === '') {
     core.setFailed(
-      `"discussion_token_${author}" is required to post as ${author}.`
+      `To post as "${author}", add a secret named "discussion_token_${author}" to your repository. See the README for setup instructions.`
     )
     return
   }
