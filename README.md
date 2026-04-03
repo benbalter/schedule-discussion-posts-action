@@ -4,13 +4,13 @@ This action will create a discussion post in a repository at a scheduled time.
 
 ## Why would I use this?
 
-1. You want to schedule a Discusion post to go live at a specific time in the
+1. You want to schedule a Discussion post to go live at a specific time in the
    future (examples: announcements, weekly updates, when you're out of office,
    etc.)
 1. You want to post a Discussion post on behalf of someone else (example:
    posting on behalf of an executive)
 1. You want to coordinate a "comms cascade" creation of a post across multiple
-   repositories (example: a cross-organizational announcement made my multiple
+   repositories (example: a cross-organizational announcement made by multiple
    authors in multiple repos, with messages tailored to each audience)
 
 ## Usage
@@ -27,19 +27,20 @@ The Action is intended to be used with two or more repositories:
 
 - The first repository is the "**source**" repository. This repository contains
   the GitHub Action configuration as well as one or more "draft" discussion
-  posts. You'll likely want to lock this repoisotry down to those that are part
+  posts. You'll likely want to lock this repository down to those that are part
   of the drafting process.
-- The second repository (or third, or forth) is the "**target**" repository.
+- The second repository (or third, or fourth) is the "**target**" repository.
   This repository is where the discussion posts will be created. The repository
   can be set per draft, and will likely have a wider audience (e.g., those that
   you want to be able to read the published discussion posts)
 
-Draft discussion posts live as `.md` files in the root of the source repository.
+Draft discussion posts live as `.md` files in the source repository (by default
+in the root, or in a configurable subdirectory via the `drafts_dir` input).
 When the action runs (on a regular basis), it will look for any draft posts that
 are scheduled to be published (publication date in the past) and will create a
-coresponding discussion post in the target repository. You can schedule as many
+corresponding discussion post in the target repository. You can schedule as many
 draft discussion posts as you'd like. Once published, the draft post will be
-deleted. to keep things tidy in the source repository.
+deleted to keep things tidy in the source repository.
 
 ## Step 1: Set up this action
 
@@ -75,8 +76,8 @@ jobs:
 ```
 
 This will run approximately on the top of the hour, every hour to check for
-posts to pubish. You can use tools like `crontab.guru` to adjust the schedule to
-your liking.
+posts to publish. You can use tools like `crontab.guru` to adjust the schedule
+to your liking.
 
 Pro-tip: If this is a new repository, be sure to enable Discussions via the
 settings.
@@ -107,10 +108,10 @@ Pro-tip: Set a calendar reminder to roll the token prior to the expiration date.
 
 ## Step 3: Create a draft discussion post
 
-Discussion posts start as `.md` files in the root of the repository where you
-set up the Action (the source repository). You can schedule as many posts as
-you'd like. Posts are standard Markdown files, with a few extra "front matter"
-fields at the top. Here's an example:
+Discussion posts start as `.md` files in the source repository where you set up
+the Action. You can schedule as many posts as you'd like. Posts are standard
+Markdown files, with a few extra "front matter" fields at the top. Here's an
+example:
 
 ```markdown
 ---
@@ -119,6 +120,7 @@ date: 2021-10-01T12:00:00Z
 repository: github/schedule-discussion-post-action
 category: General
 labels: announcement, engineering
+pin: true
 ---
 
 Body of the post here in standard Markdown.
@@ -136,8 +138,9 @@ The following front matter fields are supported:
 - `repository` (required): The target repository where the discussion post will
   be created. Must be in the format `owner/repository`.
 - `category` (required): The category of the discussion post.
-- `labels` (optional): A comma-separated list of labels to apply to the
-  discussion post.
+- `labels` (optional): Labels to apply to the discussion post. Can be specified
+  as a comma-separated string (e.g., `labels: bug, feature`) or a YAML array
+  (e.g., `labels: [bug, feature]`).
 - `author` (optional): The GitHub handle of the author of the post. Defaults to
   the owner of the `DISCUSSION_TOKEN`.
 - `pin` (optional): Set to `true` to pin the discussion after creation. Useful
@@ -195,10 +198,12 @@ jobs:
 ```
 
 This will run through the entire process of parsing and validating any changed
-draft in a pull request, but stop shot of actually creating the discussion post.
-If there are any issues, the Action will fail and provide feedback on what needs
-to be fixed. This should catch most issues giving you confidence that the post
-will be created as expected.
+draft in a pull request, but stop short of actually creating the discussion
+post. During a dry run, the Action will also verify that the target repository
+is accessible and that the specified category exists. If there are any issues,
+the Action will fail and provide feedback on what needs to be fixed. This should
+catch most issues giving you confidence that the post will be created as
+expected.
 
 Note: This Workflow file assumes you're using a pull request workflow. If you're
 not, adjust the `on` trigger accordingly (example: on push to `main`).
@@ -300,3 +305,11 @@ If you encounter any issues, please check the following:
 1. Re-run the action with debug logging enabled
 1. Ensure branch protection rules / rulesets are not preventing the action from
    deleting the post once published
+1. Verify the `DISCUSSION_TOKEN` has not expired and has `discussion:write`
+   scope for the target repository
+1. Ensure Discussions are enabled in the target repository settings
+1. Confirm the `category` specified in the front matter exists in the target
+   repository
+
+Note: The Action will automatically retry failed API requests (up to 3 times
+with exponential backoff) to handle transient network issues.
