@@ -1,6 +1,12 @@
 import { sandbox } from '../src/octokit'
 import { Repository } from '../src/repo'
-import { mockLabel, mockRepo, mockCategory, mockPost, mockGraphQL } from './fixtures'
+import {
+  mockLabel,
+  mockRepo,
+  mockCategory,
+  mockPost,
+  mockGraphQL
+} from './fixtures'
 
 describe('Repo', () => {
   beforeEach(() => {

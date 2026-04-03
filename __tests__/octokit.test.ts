@@ -1,4 +1,9 @@
-import { octokitForAuthor, octokit, repoOctokit, withRetry } from '../src/octokit'
+import {
+  octokitForAuthor,
+  octokit,
+  repoOctokit,
+  withRetry
+} from '../src/octokit'
 
 describe('octokit', () => {
   it('inits the discussion octokit', () => {

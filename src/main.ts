@@ -11,6 +11,8 @@ interface DraftResult {
   targetRepo?: string
 }
 
+const EXCLUDED_DIRS = new Set(['node_modules', '__tests__', 'dist', 'coverage'])
+
 function findMarkdownFiles(dir: string): string[] {
   const results: string[] = []
   const entries = fs.readdirSync(dir, { withFileTypes: true })
@@ -18,7 +20,7 @@ function findMarkdownFiles(dir: string): string[] {
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name)
 
-    if (entry.name.startsWith('.') || entry.name === 'node_modules') {
+    if (entry.name.startsWith('.') || EXCLUDED_DIRS.has(entry.name)) {
       continue
     }
 
@@ -94,14 +96,17 @@ async function writeSummary(results: DraftResult[]): Promise<void> {
     ])
   }
 
-  await core.summary.addHeading('Discussion Posts Summary', 2).addTable(
-    rows.map(row =>
-      row.map(cell => ({
-        data: cell,
-        header: rows.indexOf(row) === 0
-      }))
+  await core.summary
+    .addHeading('Discussion Posts Summary', 2)
+    .addTable(
+      rows.map(row =>
+        row.map(cell => ({
+          data: cell,
+          header: rows.indexOf(row) === 0
+        }))
+      )
     )
-  ).write()
+    .write()
 }
 
 async function cron(): Promise<void> {

@@ -30012,12 +30012,13 @@ const core = __importStar(__nccwpck_require__(2186));
 const fs = __importStar(__nccwpck_require__(7147));
 const path = __importStar(__nccwpck_require__(1017));
 const draft_1 = __nccwpck_require__(3351);
+const EXCLUDED_DIRS = new Set(['node_modules', '__tests__', 'dist', 'coverage']);
 function findMarkdownFiles(dir) {
     const results = [];
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
         const fullPath = path.join(dir, entry.name);
-        if (entry.name.startsWith('.') || entry.name === 'node_modules') {
+        if (entry.name.startsWith('.') || EXCLUDED_DIRS.has(entry.name)) {
             continue;
         }
         if (entry.isDirectory()) {
@@ -30078,10 +30079,13 @@ async function writeSummary(results) {
             result.url ? `[Link](${result.url})` : '—'
         ]);
     }
-    await core.summary.addHeading('Discussion Posts Summary', 2).addTable(rows.map(row => row.map(cell => ({
+    await core.summary
+        .addHeading('Discussion Posts Summary', 2)
+        .addTable(rows.map(row => row.map(cell => ({
         data: cell,
         header: rows.indexOf(row) === 0
-    })))).write();
+    }))))
+        .write();
 }
 async function cron() {
     let drafts;

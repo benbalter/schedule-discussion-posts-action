@@ -33,6 +33,8 @@ outputs:
   published_count:
     description: The number of discussion posts that were published
   skipped_count:
-    description: The number of drafts that were skipped (future, already published, or invalid)
+    description:
+      The number of drafts that were skipped (future, already published, or
+      invalid)
   published_urls:
     description: A JSON array of URLs for the published discussion posts

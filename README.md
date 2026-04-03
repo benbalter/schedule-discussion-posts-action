@@ -35,9 +35,9 @@ The Action is intended to be used with two or more repositories:
   you want to be able to read the published discussion posts)
 
 Draft discussion posts live as `.md` files in the source repository (by default
-in the root, or in a configurable subdirectory via the `drafts_dir` input).
-When the action runs (on a regular basis), it will look for any draft posts that
-are scheduled to be published (publication date in the past) and will create a
+in the root, or in a configurable subdirectory via the `drafts_dir` input). When
+the action runs (on a regular basis), it will look for any draft posts that are
+scheduled to be published (publication date in the past) and will create a
 corresponding discussion post in the target repository. You can schedule as many
 draft discussion posts as you'd like. Once published, the draft post will be
 deleted to keep things tidy in the source repository.
@@ -232,7 +232,8 @@ The Action accepts the following `with:` parameters:
 
 ### Action Outputs
 
-The action sets the following outputs that can be used in subsequent workflow steps:
+The action sets the following outputs that can be used in subsequent workflow
+steps:
 
 - `published_count`: The number of discussion posts that were published
 - `skipped_count`: The number of drafts that were skipped
@@ -245,10 +246,12 @@ Example usage:
   id: schedule-posts
   with:
     discussion_token: ${{ secrets.DISCUSSION_TOKEN }}
-- run: echo "Published ${{ steps.schedule-posts.outputs.published_count }} posts"
+- run:
+    echo "Published ${{ steps.schedule-posts.outputs.published_count }} posts"
 ```
 
-The action also generates a rich Job Summary table visible in the Actions run page, showing the status of each draft processed.
+The action also generates a rich Job Summary table visible in the Actions run
+page, showing the status of each draft processed.
 
 ### Multiple authors
 

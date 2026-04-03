@@ -175,7 +175,9 @@ export class Repository {
         owner: this.owner,
         repo: this.name
       })
-      core.info(`✅ Repository ${this.owner}/${this.name} exists and is accessible`)
+      core.info(
+        `✅ Repository ${this.owner}/${this.name} exists and is accessible`
+      )
     } catch (error) {
       core.setFailed(
         `❌ Cannot access repository ${this.owner}/${this.name}. Check that: (1) the repository exists, (2) your Personal Access Token has access, (3) Discussions are enabled.`
