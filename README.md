@@ -68,7 +68,7 @@ jobs:
   schedule-discussion-posts:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: benbalter/schedule-discussion-posts-action@main
         with:
           discussion_token: ${{ secrets.DISCUSSION_TOKEN }}
@@ -140,9 +140,16 @@ The following front matter fields are supported:
   discussion post.
 - `author` (optional): The GitHub handle of the author of the post. Defaults to
   the owner of the `DISCUSSION_TOKEN`.
+- `pin` (optional): Set to `true` to pin the discussion after creation. Useful
+  for important executive announcements.
 
-Note: Setting labels is not yet implemented due to restrictions with the GitHub
-API.
+The body of the post supports template variables using `{{variable}}` syntax:
+
+- `{{title}}`: The title of the post
+- `{{date}}`: The scheduled date (ISO 8601)
+- `{{author}}`: The author handle
+- `{{category}}`: The discussion category
+- `{{repository}}`: The target repository (`owner/repo`)
 
 ## But what if I did something wrong? (Optional)
 
@@ -214,6 +221,29 @@ The Action accepts the following `with:` parameters:
   `false`.
 - `files` (optional): A JSON-formatted array of files to parse. Defaults to all
   `.md` files in the repository root.
+- `drafts_dir` (optional): The directory to search for draft markdown files.
+  Supports subdirectories. Defaults to the repository root (`./`). Useful for
+  organizing drafts in folders (e.g., `drafts/`).
+
+### Action Outputs
+
+The action sets the following outputs that can be used in subsequent workflow steps:
+
+- `published_count`: The number of discussion posts that were published
+- `skipped_count`: The number of drafts that were skipped
+- `published_urls`: A JSON array of URLs for the published discussion posts
+
+Example usage:
+
+```yaml
+- uses: benbalter/schedule-discussion-posts-action@main
+  id: schedule-posts
+  with:
+    discussion_token: ${{ secrets.DISCUSSION_TOKEN }}
+- run: echo "Published ${{ steps.schedule-posts.outputs.published_count }} posts"
+```
+
+The action also generates a rich Job Summary table visible in the Actions run page, showing the status of each draft processed.
 
 ### Multiple authors
 
@@ -226,7 +256,7 @@ front matter of the draft post with their handle. For example:
 ---
 title: Another important post, authored by someone else
 date: 2021-10-01T12:00:00Z
-repositotry: github/schedule-discussion-post-action
+repository: github/schedule-discussion-post-action
 category: General
 author: hubot
 ---
@@ -244,7 +274,7 @@ jobs:
   schedule-discussion-posts:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: benbalter/schedule-discussion-posts-action@main
         with:
           # The default token used when no author is specified

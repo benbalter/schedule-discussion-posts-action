@@ -47,6 +47,16 @@ describe('draft', () => {
     expect(draft.isPast).toBe(false)
   })
 
+  it('should be valid for a well-formed draft', () => {
+    const draft = new Draft('./__tests__/fixtures/draft.md')
+    expect(draft.valid).toBe(true)
+  })
+
+  it('should be invalid for a non-existent file', () => {
+    const draft = new Draft('./__tests__/fixtures/nonexistent.md')
+    expect(draft.valid).toBe(false)
+  })
+
   it('should delete', async () => {
     const { getMock, deleteMock } = mockFileDeletion()
     const draft = new Draft('./__tests__/fixtures/draft.md')

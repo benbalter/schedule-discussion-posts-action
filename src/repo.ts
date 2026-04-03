@@ -1,6 +1,8 @@
-import { octokit, octokitForAuthor } from './octokit'
+import { octokit, octokitForAuthor, withRetry } from './octokit'
 import * as core from '@actions/core'
-import type { GraphQlQueryResponseData } from '@octokit/graphql'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type GraphQlResponse = Record<string, any>
 
 const searchQuery = `
   query($q: String!) {
@@ -23,6 +25,16 @@ const discussionCategoryQuery = `
           id
           name
         }
+      }
+    }
+  }
+`
+
+const pinDiscussionMutation = `
+  mutation($discussionId: ID!) {
+    pinDiscussion(input: {discussionId: $discussionId}) {
+      discussion {
+        id
       }
     }
   }
@@ -70,9 +82,9 @@ export class Repository {
     const query = `repo:${this.owner}/${this.name} is:discussion in:title ${title} created:>=${formattedDate}`
     core.debug(`Searching for discussion: ${query}`)
     try {
-      const response: GraphQlQueryResponseData = await this.octokit.graphql(
-        searchQuery,
-        { q: query }
+      const response: GraphQlResponse = await withRetry(
+        () => this.octokit.graphql(searchQuery, { q: query }),
+        `Searching for discussion "${title}"`
       )
       const results = response.search.nodes
       if (results.length === 0) {
@@ -100,7 +112,7 @@ export class Repository {
       name: this.name
     }
 
-    let response: GraphQlQueryResponseData
+    let response: GraphQlResponse
     try {
       response = await this.octokit.graphql(discussionCategoryQuery, variables)
     } catch (error) {
@@ -134,5 +146,34 @@ export class Repository {
       core.setFailed(`Failed to get repository: ${this.name} (${error})`)
       return
     }
+  }
+
+  async pinDiscussion(discussionId: string): Promise<void> {
+    try {
+      core.info(`Pinning discussion: ${discussionId}`)
+      await this.octokit.graphql(pinDiscussionMutation, { discussionId })
+      core.info('Discussion pinned successfully')
+    } catch (error) {
+      core.warning(`Failed to pin discussion: ${error}`)
+    }
+  }
+
+  async validate(): Promise<boolean> {
+    let valid = true
+
+    try {
+      await this.octokit.rest.repos.get({
+        owner: this.owner,
+        repo: this.name
+      })
+      core.info(`✅ Repository ${this.owner}/${this.name} exists and is accessible`)
+    } catch (error) {
+      core.setFailed(
+        `❌ Cannot access repository ${this.owner}/${this.name}: ${error}`
+      )
+      valid = false
+    }
+
+    return valid
   }
 }

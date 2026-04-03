@@ -19,7 +19,20 @@ inputs:
       repository will be processed
     required: false
     default: ''
+  drafts_dir:
+    description:
+      The directory to search for draft markdown files. Supports subdirectories.
+      Defaults to the repository root.
+    required: false
+    default: './'
   dry_run:
     description: Whether to actually create the post
     required: false
     default: 'false'
+outputs:
+  published_count:
+    description: The number of discussion posts that were published
+  skipped_count:
+    description: The number of drafts that were skipped (future, already published, or invalid)
+  published_urls:
+    description: A JSON array of URLs for the published discussion posts

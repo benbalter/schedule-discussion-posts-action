@@ -2,11 +2,13 @@ import * as fs from 'fs'
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 import { parse } from 'yaml'
-import { octokit, repoOctokit, octokitForAuthor } from './octokit'
+import { octokit, repoOctokit, octokitForAuthor, withRetry } from './octokit'
 import { Repository } from './repo'
-import type { GraphQlQueryResponseData } from '@octokit/graphql'
 import * as yaml from 'yaml'
 import * as chrono from 'chrono-node'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type GraphQlResponse = Record<string, any>
 
 const createMutation = `
   mutation($repositoryId: ID!, $body: String!, $title: String!, $categoryId: ID! ) {
@@ -43,12 +45,14 @@ export class Draft {
   url: string | undefined
   category: string | undefined
   author: string | undefined
+  pin: boolean = false
   octokit: typeof octokit
+  valid: boolean = false
 
   requiredFrontMatter = ['title', 'repository', 'date', 'category', 'body']
 
   constructor(path: string) {
-    console.info(`Reading draft: ${path}`)
+    core.info(`Reading draft: ${path}`)
 
     this.path = path
     this.octokit = octokit
@@ -72,7 +76,6 @@ export class Draft {
       return
     }
 
-    // TODO: Move each of these to their own functions
     const parsedDate = chrono.parseDate(parsed.date as string)
 
     if (parsedDate === null) {
@@ -89,7 +92,7 @@ export class Draft {
 
     this.repository = new Repository(repoParts[0], repoParts[1], parsed.author)
     this.title = parsed.title
-    this.body = parsed.body?.trim()
+    this.body = this.interpolateVariables(parsed.body?.trim())
     this.date = parsedDate
     this.path = path
     this.category = parsed.category
@@ -103,18 +106,23 @@ export class Draft {
       this.labels = []
     }
 
+    if (parsed.pin === true || parsed.pin === 'true') {
+      this.pin = true
+    }
+
     if (parsed.author !== undefined && parsed.author !== '') {
       const authorOctokit = octokitForAuthor(parsed.author)
 
       if (authorOctokit !== undefined) {
         this.octokit = authorOctokit
-        console.info(`Masquerading as ${parsed.author}`)
+        core.info(`Masquerading as ${parsed.author}`)
       }
     }
 
-    console.info(
+    core.info(
       `Front Matter for draft ${this.path}: \n${yaml.stringify(parsed)}`
     )
+    this.valid = true
   }
 
   readContents(): string | undefined {
@@ -126,12 +134,15 @@ export class Draft {
     }
   }
 
-  parseFrontMatter(): { [key: string]: string | undefined } | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  parseFrontMatter(): { [key: string]: any } | undefined {
     if (this.contents === undefined) {
       return
     }
 
-    const frontMatter = this.contents.match(/^---\n([\s\S]+?)\n---\n/)
+    const frontMatter = this.contents.match(
+      /^---[ \t]*\r?\n([\s\S]+?)\r?\n---[ \t]*\r?\n/
+    )
     if (!frontMatter) {
       core.setFailed(`Failed to parse front matter in draft: ${this.path}`)
       return
@@ -141,6 +152,24 @@ export class Draft {
     const body = this.contents.replace(frontMatter[0], '')
 
     return { ...parsed, body }
+  }
+
+  interpolateVariables(body: string | undefined): string | undefined {
+    if (body === undefined) return undefined
+
+    const variables: Record<string, string> = {
+      title: this.title || '',
+      date: this.date?.toISOString() || '',
+      author: this.author || '',
+      category: this.category || '',
+      repository: this.repository
+        ? `${this.repository.owner}/${this.repository.name}`
+        : ''
+    }
+
+    return body.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+      return variables[key] !== undefined ? variables[key] : match
+    })
   }
 
   async delete(): Promise<void> {
@@ -214,12 +243,11 @@ export class Draft {
 
     if (core.getInput('dry_run') === 'true') {
       core.info(
-        'Dry run enabled. Skipping setting labels. Would have set: ${this.labels}'
+        `Dry run enabled. Skipping setting labels. Would have set: ${this.labels}`
       )
       return
     }
 
-    // eslint-disable-next-line no-unreachable
     const variables = {
       discussionId: this.id,
       labelIds
@@ -260,17 +288,29 @@ export class Draft {
         body: this.body,
         categoryId
       }
-      const result: GraphQlQueryResponseData = await this.octokit.graphql(
-        createMutation,
-        variables
+      const result: GraphQlResponse = await withRetry(
+        () => this.octokit.graphql(createMutation, variables),
+        `Publishing discussion "${this.title}"`
       )
       core.notice(
         `Published post: ${this.title} at ${result.createDiscussion.discussion.url}`
       )
       this.id = result.createDiscussion.discussion.id
       this.url = result.createDiscussion.discussion.url
+
+      if (this.pin && this.id && this.repository) {
+        await this.repository.pinDiscussion(this.id)
+      }
     } else {
       core.info(`Dry run enabled. Skipping publishing post: ${this.title}`)
+      if (this.pin) {
+        core.info('Post is configured to be pinned after publishing')
+      }
+
+      // Validate target repo accessibility during dry run
+      if (this.repository) {
+        await this.repository.validate()
+      }
     }
 
     await this.addLabels()

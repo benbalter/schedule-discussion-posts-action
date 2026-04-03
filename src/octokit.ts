@@ -50,3 +50,25 @@ export function octokitForAuthor(author: string): undefined | typeof octokit {
   }
   return github.getOctokit(token, options)
 }
+
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  label: string,
+  maxRetries: number = 3
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      if (attempt === maxRetries) {
+        throw error
+      }
+      const delay = Math.pow(2, attempt) * 1000
+      core.warning(
+        `${label} failed (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms: ${error}`
+      )
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
+  }
+  throw new Error(`${label} failed after ${maxRetries} attempts`)
+}
