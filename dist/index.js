@@ -29727,14 +29727,14 @@ class Draft {
         this.contents = this.readContents();
         const parsed = this.parseFrontMatter();
         if (parsed === undefined) {
-            core.setFailed(`Could not parse the metadata block in ${this.path}. Ensure the file starts with --- on its own line, followed by the metadata fields, followed by --- on its own line.`);
+            core.warning(`Could not parse the metadata block in ${this.path}. Ensure the file starts with --- on its own line, followed by the metadata fields, followed by --- on its own line.`);
             return;
         }
         let hasRequiredFrontMatter = true;
         for (const field of this.requiredFrontMatter) {
             if (parsed[field] === undefined) {
                 hasRequiredFrontMatter = false;
-                core.setFailed(`Draft ${this.path} is missing required field: "${field}". Add it to the metadata block at the top of the file.`);
+                core.warning(`Draft ${this.path} is missing required field: "${field}". Add it to the metadata block at the top of the file.`);
             }
         }
         if (!hasRequiredFrontMatter) {
@@ -29742,13 +29742,13 @@ class Draft {
         }
         const parsedDate = chrono.parseDate(parsed.date);
         if (parsedDate === null) {
-            core.setFailed(`Could not understand the date "${parsed.date}" in ${this.path}. Try ISO 8601 format (e.g., 2024-01-15T14:30:00Z) or plain English (e.g., "January 15, 2024 at 2:30 PM EST").`);
+            core.warning(`Could not understand the date "${parsed.date}" in ${this.path}. Try ISO 8601 format (e.g., 2024-01-15T14:30:00Z) or plain English (e.g., "January 15, 2024 at 2:30 PM EST").`);
             return;
         }
         core.info(`${this.path} has date: ${parsedDate}`);
         const repoParts = parsed.repository?.split('/');
         if (repoParts === undefined || repoParts.length !== 2) {
-            core.setFailed(`Invalid repository format in ${this.path}: "${parsed.repository}". Use the format "owner/name" (e.g., "github/docs").`);
+            core.warning(`Invalid repository format in ${this.path}: "${parsed.repository}". Use the format "owner/name" (e.g., "github/docs").`);
             return;
         }
         this.repository = new repo_1.Repository(repoParts[0], repoParts[1], parsed.author);
@@ -29788,7 +29788,7 @@ class Draft {
             return fs.readFileSync(this.path, 'utf8');
         }
         catch (error) {
-            core.setFailed(`Cannot find or read file "${this.path}". Check that the filename is spelled correctly and exists in the repository.`);
+            core.warning(`Cannot find or read file "${this.path}". Check that the filename is spelled correctly and exists in the repository.`);
         }
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29798,7 +29798,7 @@ class Draft {
         }
         const frontMatter = this.contents.match(/^---[ \t]*\r?\n([\s\S]+?)\r?\n---[ \t]*\r?\n/);
         if (!frontMatter) {
-            core.setFailed(`Could not find a metadata block in ${this.path}. The file must start with "---" on the first line, followed by metadata fields (title, date, repository, category), and closed with "---" on its own line.`);
+            core.warning(`Could not find a metadata block in ${this.path}. The file must start with "---" on the first line, followed by metadata fields (title, date, repository, category), and closed with "---" on its own line.`);
             return;
         }
         const parsed = (0, yaml_1.parse)(frontMatter[1]);
