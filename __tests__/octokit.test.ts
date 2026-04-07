@@ -56,6 +56,7 @@ describe('octokit', () => {
 
       const promise = withRetry(fn, 'test', 3)
       // Attach rejection handler before advancing timers to avoid unhandled rejection
+      // eslint-disable-next-line jest/valid-expect
       const resultPromise = expect(promise).rejects.toThrow('fail')
 
       await jest.advanceTimersByTimeAsync(2000)

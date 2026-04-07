@@ -1,3 +1,4 @@
+import * as core from '@actions/core'
 import { sandbox } from '../src/octokit'
 import { Draft } from '../src/draft'
 import {
@@ -55,6 +56,22 @@ describe('draft', () => {
   it('should be invalid for a non-existent file', () => {
     const draft = new Draft('./__tests__/fixtures/nonexistent.md')
     expect(draft.valid).toBe(false)
+  })
+
+  it('should not call setFailed for a file without front matter', () => {
+    const setFailedSpy = jest.spyOn(core, 'setFailed')
+    const draft = new Draft('./__tests__/fixtures/no-frontmatter.md')
+    expect(draft.valid).toBe(false)
+    expect(setFailedSpy).not.toHaveBeenCalled()
+    setFailedSpy.mockRestore()
+  })
+
+  it('should not call setFailed for a non-existent file', () => {
+    const setFailedSpy = jest.spyOn(core, 'setFailed')
+    const draft = new Draft('./__tests__/fixtures/nonexistent.md')
+    expect(draft.valid).toBe(false)
+    expect(setFailedSpy).not.toHaveBeenCalled()
+    setFailedSpy.mockRestore()
   })
 
   describe('interpolateVariables', () => {

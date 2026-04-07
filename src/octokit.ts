@@ -19,9 +19,13 @@ if (process.env.NODE_ENV === 'test') {
   repoToken = 'REPO_TOKEN'
   core.info('Running in test mode')
 } else {
+  const dryRun = core.getInput('dry_run') === 'true'
+
   // Yes, we could set { required: true } below, but this provides more
   // human-friendly error messages.
   for (const token of ['discussion_token', 'repo_token']) {
+    // discussion_token is not required in dry-run mode as no discussions are published
+    if (token === 'discussion_token' && dryRun) continue
     if (core.getInput(token) === '') {
       core.setFailed(
         `${token} is required. Pass as a "with" parameter in your workflow file.`
@@ -29,8 +33,9 @@ if (process.env.NODE_ENV === 'test') {
     }
   }
 
-  discussionToken = core.getInput('discussion_token')
   repoToken = core.getInput('repo_token')
+  // In dry-run mode, fall back to repo_token when discussion_token is not provided
+  discussionToken = core.getInput('discussion_token') || repoToken
 }
 
 // Octokit instance with discussion create scope for the target repo
@@ -54,7 +59,7 @@ export function octokitForAuthor(author: string): undefined | typeof octokit {
 export async function withRetry<T>(
   fn: () => Promise<T>,
   label: string,
-  maxRetries: number = 3
+  maxRetries = 3
 ): Promise<T> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {

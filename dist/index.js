@@ -29727,14 +29727,14 @@ class Draft {
         this.contents = this.readContents();
         const parsed = this.parseFrontMatter();
         if (parsed === undefined) {
-            core.setFailed(`Could not parse the metadata block in ${this.path}. Ensure the file starts with --- on its own line, followed by the metadata fields, followed by --- on its own line.`);
+            core.warning(`Could not parse the metadata block in ${this.path}. Ensure the file starts with --- on its own line, followed by the metadata fields, followed by --- on its own line.`);
             return;
         }
         let hasRequiredFrontMatter = true;
         for (const field of this.requiredFrontMatter) {
             if (parsed[field] === undefined) {
                 hasRequiredFrontMatter = false;
-                core.setFailed(`Draft ${this.path} is missing required field: "${field}". Add it to the metadata block at the top of the file.`);
+                core.warning(`Draft ${this.path} is missing required field: "${field}". Add it to the metadata block at the top of the file.`);
             }
         }
         if (!hasRequiredFrontMatter) {
@@ -29742,13 +29742,13 @@ class Draft {
         }
         const parsedDate = chrono.parseDate(parsed.date);
         if (parsedDate === null) {
-            core.setFailed(`Could not understand the date "${parsed.date}" in ${this.path}. Try ISO 8601 format (e.g., 2024-01-15T14:30:00Z) or plain English (e.g., "January 15, 2024 at 2:30 PM EST").`);
+            core.warning(`Could not understand the date "${parsed.date}" in ${this.path}. Try ISO 8601 format (e.g., 2024-01-15T14:30:00Z) or plain English (e.g., "January 15, 2024 at 2:30 PM EST").`);
             return;
         }
         core.info(`${this.path} has date: ${parsedDate}`);
         const repoParts = parsed.repository?.split('/');
         if (repoParts === undefined || repoParts.length !== 2) {
-            core.setFailed(`Invalid repository format in ${this.path}: "${parsed.repository}". Use the format "owner/name" (e.g., "github/docs").`);
+            core.warning(`Invalid repository format in ${this.path}: "${parsed.repository}". Use the format "owner/name" (e.g., "github/docs").`);
             return;
         }
         this.repository = new repo_1.Repository(repoParts[0], repoParts[1], parsed.author);
@@ -29788,7 +29788,7 @@ class Draft {
             return fs.readFileSync(this.path, 'utf8');
         }
         catch (error) {
-            core.setFailed(`Cannot find or read file "${this.path}". Check that the filename is spelled correctly and exists in the repository.`);
+            core.warning(`Cannot find or read file "${this.path}". Check that the filename is spelled correctly and exists in the repository.`);
         }
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29798,7 +29798,7 @@ class Draft {
         }
         const frontMatter = this.contents.match(/^---[ \t]*\r?\n([\s\S]+?)\r?\n---[ \t]*\r?\n/);
         if (!frontMatter) {
-            core.setFailed(`Could not find a metadata block in ${this.path}. The file must start with "---" on the first line, followed by metadata fields (title, date, repository, category), and closed with "---" on its own line.`);
+            core.warning(`Could not find a metadata block in ${this.path}. The file must start with "---" on the first line, followed by metadata fields (title, date, repository, category), and closed with "---" on its own line.`);
             return;
         }
         const parsed = (0, yaml_1.parse)(frontMatter[1]);
@@ -29922,7 +29922,7 @@ class Draft {
                 body: this.body,
                 categoryId
             };
-            const result = await (0, octokit_1.withRetry)(() => this.octokit.graphql(createMutation, variables), `Publishing discussion "${this.title}"`);
+            const result = await (0, octokit_1.withRetry)(async () => this.octokit.graphql(createMutation, variables), `Publishing discussion "${this.title}"`);
             core.notice(`Published post: ${this.title} at ${result.createDiscussion.discussion.url}`);
             this.id = result.createDiscussion.discussion.id;
             this.url = result.createDiscussion.discussion.url;
@@ -30230,15 +30230,20 @@ if (process.env.NODE_ENV === 'test') {
     core.info('Running in test mode');
 }
 else {
+    const dryRun = core.getInput('dry_run') === 'true';
     // Yes, we could set { required: true } below, but this provides more
     // human-friendly error messages.
     for (const token of ['discussion_token', 'repo_token']) {
+        // discussion_token is not required in dry-run mode as no discussions are published
+        if (token === 'discussion_token' && dryRun)
+            continue;
         if (core.getInput(token) === '') {
             core.setFailed(`${token} is required. Pass as a "with" parameter in your workflow file.`);
         }
     }
-    discussionToken = core.getInput('discussion_token');
     repoToken = core.getInput('repo_token');
+    // In dry-run mode, fall back to repo_token when discussion_token is not provided
+    discussionToken = core.getInput('discussion_token') || repoToken;
 }
 // Octokit instance with discussion create scope for the target repo
 exports.octokit = github.getOctokit(discussionToken, options);
@@ -30373,7 +30378,7 @@ class Repository {
         const query = `repo:${this.owner}/${this.name} is:discussion in:title ${title} created:>=${formattedDate}`;
         core.debug(`Searching for discussion: ${query}`);
         try {
-            const response = await (0, octokit_1.withRetry)(() => this.octokit.graphql(searchQuery, { q: query }), `Searching for discussion "${title}"`);
+            const response = await (0, octokit_1.withRetry)(async () => this.octokit.graphql(searchQuery, { q: query }), `Searching for discussion "${title}"`);
             const results = response.search.nodes;
             if (results.length === 0) {
                 core.info(`👍🏻 No existing discussion found with title "${title}" and date ${date}`);
