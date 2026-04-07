@@ -85,7 +85,7 @@ export class Repository {
     core.debug(`Searching for discussion: ${query}`)
     try {
       const response: GraphQlResponse = await withRetry(
-        () => this.octokit.graphql(searchQuery, { q: query }),
+        async () => this.octokit.graphql(searchQuery, { q: query }),
         `Searching for discussion "${title}"`
       )
       const results = response.search.nodes

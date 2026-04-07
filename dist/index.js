@@ -29922,7 +29922,7 @@ class Draft {
                 body: this.body,
                 categoryId
             };
-            const result = await (0, octokit_1.withRetry)(() => this.octokit.graphql(createMutation, variables), `Publishing discussion "${this.title}"`);
+            const result = await (0, octokit_1.withRetry)(async () => this.octokit.graphql(createMutation, variables), `Publishing discussion "${this.title}"`);
             core.notice(`Published post: ${this.title} at ${result.createDiscussion.discussion.url}`);
             this.id = result.createDiscussion.discussion.id;
             this.url = result.createDiscussion.discussion.url;
@@ -30373,7 +30373,7 @@ class Repository {
         const query = `repo:${this.owner}/${this.name} is:discussion in:title ${title} created:>=${formattedDate}`;
         core.debug(`Searching for discussion: ${query}`);
         try {
-            const response = await (0, octokit_1.withRetry)(() => this.octokit.graphql(searchQuery, { q: query }), `Searching for discussion "${title}"`);
+            const response = await (0, octokit_1.withRetry)(async () => this.octokit.graphql(searchQuery, { q: query }), `Searching for discussion "${title}"`);
             const results = response.search.nodes;
             if (results.length === 0) {
                 core.info(`👍🏻 No existing discussion found with title "${title}" and date ${date}`);

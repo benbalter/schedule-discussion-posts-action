@@ -54,7 +54,7 @@ export function octokitForAuthor(author: string): undefined | typeof octokit {
 export async function withRetry<T>(
   fn: () => Promise<T>,
   label: string,
-  maxRetries: number = 3
+  maxRetries = 3
 ): Promise<T> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {

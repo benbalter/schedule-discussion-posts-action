@@ -1,3 +1,3 @@
-# Just a regular markdown file
+# Just a regular file
 
 This file has no front matter metadata block.

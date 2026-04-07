@@ -45,9 +45,9 @@ export class Draft {
   url: string | undefined
   category: string | undefined
   author: string | undefined
-  pin: boolean = false
+  pin = false
   octokit: typeof octokit
-  valid: boolean = false
+  valid = false
 
   requiredFrontMatter = ['title', 'repository', 'date', 'category', 'body']
 
@@ -318,7 +318,7 @@ export class Draft {
         categoryId
       }
       const result: GraphQlResponse = await withRetry(
-        () => this.octokit.graphql(createMutation, variables),
+        async () => this.octokit.graphql(createMutation, variables),
         `Publishing discussion "${this.title}"`
       )
       core.notice(
