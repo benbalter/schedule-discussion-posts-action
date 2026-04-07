@@ -226,7 +226,7 @@ The Action accepts the following `with:` parameters:
   `false`.
 - `files` (optional): A JSON-formatted array of files to parse. Defaults to all
   `.md` files in the repository root.
-- `drafts_dir` (optional): The directory to search for draft markdown files.
+- `drafts_dir` (optional): The directory to search for draft Markdown files.
   Supports subdirectories. Defaults to the repository root (`./`). Useful for
   organizing drafts in folders (e.g., `drafts/`).
 
