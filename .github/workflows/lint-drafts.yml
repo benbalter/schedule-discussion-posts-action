@@ -17,7 +17,7 @@ jobs:
 
       - name: Get all changed markdown files
         id: changed-markdown-files
-        uses: tj-actions/changed-files@v44
+        uses: tj-actions/changed-files@2f7c5bfce28377bc069a65ba478de0a74aa0ca32 # v46
         with:
           json: true
           escape_json: false
