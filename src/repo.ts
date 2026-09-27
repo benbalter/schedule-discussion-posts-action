@@ -90,7 +90,7 @@ export class Repository {
         name
       })
       return label.node_id
-    } catch (error) {
+    } catch {
       core.setFailed(
         `Label "${name}" was not found in ${this.owner}/${this.name}. Create it in the repository's Labels settings, or remove it from the draft metadata.`
       )
@@ -166,7 +166,7 @@ export class Repository {
     let response: CategoriesResponse
     try {
       response = await this.octokit.graphql(discussionCategoryQuery, variables)
-    } catch (error) {
+    } catch {
       core.setFailed(
         `Cannot access ${this.owner}/${this.name}. Check that: (1) the repository exists, (2) your Personal Access Token has access, (3) Discussions are enabled in the repository settings.`
       )
@@ -195,7 +195,7 @@ export class Repository {
         repo: this.name
       })
       return repo.node_id
-    } catch (error) {
+    } catch {
       core.setFailed(
         `Unable to access repository ${this.owner}/${this.name}. Check that the repository exists and your Personal Access Token has access to it.`
       )
@@ -208,7 +208,7 @@ export class Repository {
       core.info(`Pinning discussion: ${discussionId}`)
       await this.octokit.graphql(pinDiscussionMutation, { discussionId })
       core.info('Discussion pinned successfully')
-    } catch (error) {
+    } catch {
       core.warning(
         `Could not pin the discussion. This may require additional permissions on your Personal Access Token. The post was still published successfully.`
       )
@@ -226,7 +226,7 @@ export class Repository {
       core.info(
         `✅ Repository ${this.owner}/${this.name} exists and is accessible`
       )
-    } catch (error) {
+    } catch {
       core.setFailed(
         `❌ Cannot access repository ${this.owner}/${this.name}. Check that: (1) the repository exists, (2) your Personal Access Token has access, (3) Discussions are enabled.`
       )
