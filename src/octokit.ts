@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import * as github from '@actions/github'
 import * as core from '@actions/core'
+import { isDryRun } from './inputs'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires, import/no-commonjs, @typescript-eslint/no-require-imports
 export const sandbox = require('fetch-mock').sandbox()
@@ -19,7 +20,13 @@ if (process.env.NODE_ENV === 'test') {
   repoToken = 'REPO_TOKEN'
   core.info('Running in test mode')
 } else {
-  const dryRun = core.getInput('dry_run') === 'true'
+  // An invalid dry_run value is reported by run(); don't throw at module load
+  let dryRun = false
+  try {
+    dryRun = isDryRun()
+  } catch {
+    dryRun = false
+  }
 
   // Yes, we could set { required: true } below, but this provides more
   // human-friendly error messages.
@@ -45,11 +52,11 @@ export const octokit = github.getOctokit(discussionToken, options)
 export const repoOctokit = github.getOctokit(repoToken, options)
 
 export function octokitForAuthor(author: string): undefined | typeof octokit {
-  author = author.replaceAll(/-/g, '_')
-  const token = core.getInput(`discussion_token_${author}`)
+  const input = `discussion_token_${author.replaceAll(/-/g, '_')}`
+  const token = core.getInput(input)
   if (token === '') {
-    core.setFailed(
-      `To post as "${author}", add a secret named "discussion_token_${author}" to your repository. See the README for setup instructions.`
+    core.warning(
+      `No "${input}" input found to post as "${author}". Falling back to the default discussion_token. See the README for setup instructions.`
     )
     return
   }

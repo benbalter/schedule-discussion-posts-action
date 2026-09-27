@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import { sandbox } from '../src/octokit'
+import { sandbox, octokit } from '../src/octokit'
 import { Draft } from '../src/draft'
 import {
   mockLabel,
@@ -96,6 +96,40 @@ describe('draft', () => {
     })
   })
 
+  it('interpolates every variable when constructed', () => {
+    process.env.INPUT_DISCUSSION_TOKEN_AUTHOR = 'AUTHOR_TOKEN'
+    const draft = new Draft('./__tests__/fixtures/variables.md')
+    expect(draft.body).toBe(
+      'Variables post by author in General of owner/repo on 2024-01-01T19:00:00.000Z'
+    )
+  })
+
+  it('strips a leading @ from the author before looking up its token', () => {
+    process.env.INPUT_DISCUSSION_TOKEN_AUTHOR = 'AUTHOR_TOKEN'
+    const draft = new Draft('./__tests__/fixtures/variables.md')
+    expect(draft.author).toBe('author')
+    expect(draft.octokit).not.toBe(octokit)
+    expect(draft.repository?.octokit).toBe(draft.octokit)
+  })
+
+  it('falls back to the default token with a warning when the author has none', () => {
+    process.env.INPUT_DISCUSSION_TOKEN_AUTHOR = ''
+    const setFailedSpy = jest.spyOn(core, 'setFailed')
+    const warningSpy = jest.spyOn(core, 'warning')
+    const draft = new Draft('./__tests__/fixtures/variables.md')
+    expect(draft.valid).toBe(true)
+    expect(draft.octokit).toBe(octokit)
+    expect(setFailedSpy).not.toHaveBeenCalled()
+    expect(warningSpy).toHaveBeenCalledTimes(1)
+    setFailedSpy.mockRestore()
+    warningSpy.mockRestore()
+  })
+
+  it('parses the singular label key and drops empty labels', () => {
+    const draft = new Draft('./__tests__/fixtures/singular-label.md')
+    expect(draft.labels).toEqual(['bug', 'feature'])
+  })
+
   describe('pin field', () => {
     it('parses pin: true from front matter', () => {
       const draft = new Draft('./__tests__/fixtures/pinned.md')
@@ -152,10 +186,11 @@ describe('draft', () => {
 
       it("Knows when it's published", async () => {
         const draft = new Draft(fixture)
-        const mock = mockPost({ token })
+        const mock = mockPost({ token, title: draft.title })
         const isPublished = await draft.isPublished()
         expect(mock.called()).toBe(true)
         expect(isPublished).toBe(true)
+        expect(draft.url).toBe('https://github.com/owner/repo/discussions/1')
       })
 
       it("Knows when it's not published", async () => {
@@ -172,7 +207,10 @@ describe('draft', () => {
         mockRepo({ token })
         mockLabel({ token })
         const labelMock = mockLabelCreation({ token })
-        const { getMock, deleteMock } = mockFileDeletion()
+        const { getMock, deleteMock } = mockFileDeletion({
+          path: fixture,
+          url: `https://api.github.com/repos/source-owner/source-repo/contents/${encodeURIComponent(fixture)}`
+        })
 
         const draft = new Draft(fixture)
         const id = await draft.publish()
@@ -181,6 +219,44 @@ describe('draft', () => {
         expect(deleteMock.called()).toBe(true)
         expect(getMock.called()).toBe(true)
         expect(id).toBe('id123')
+      })
+
+      it('does not create a duplicate when a failed attempt actually succeeded', async () => {
+        jest.useFakeTimers()
+        const draft = new Draft(fixture)
+        sandbox.mock(
+          {
+            method: 'POST',
+            url: 'https://api.github.com/graphql',
+            name: 'publishFails',
+            headers: { authorization: `token ${token}` },
+            functionMatcher: (_: string, opts: { body?: string }) =>
+              String(opts.body).includes('createDiscussion')
+          },
+          { status: 502, body: { message: 'Bad Gateway' } }
+        )
+        const findMock = mockPost({
+          token,
+          title: draft.title,
+          nodes: [{ id: 'created-anyway' }]
+        })
+        mockCategory({ token })
+        mockRepo({ token })
+        mockLabel({ token })
+        mockLabelCreation({ token })
+        mockFileDeletion({
+          path: fixture,
+          url: `https://api.github.com/repos/source-owner/source-repo/contents/${encodeURIComponent(fixture)}`
+        })
+
+        const promise = draft.publish()
+        await jest.advanceTimersByTimeAsync(2000)
+        const id = await promise
+        jest.useRealTimers()
+
+        expect(findMock.called()).toBe(true)
+        expect(sandbox.calls('publishFails')).toHaveLength(1)
+        expect(id).toBe('created-anyway')
       })
     })
   }

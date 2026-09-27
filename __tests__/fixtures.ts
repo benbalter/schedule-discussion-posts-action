@@ -1,12 +1,22 @@
 import { sandbox } from '../src/octokit'
 
+// A handle to one mocked route. (sandbox.mock() returns the whole sandbox, so
+// calling .called() on it reports whether *any* request was made.)
+export interface Route {
+  called: () => boolean
+}
+
+function route(name: string): Route {
+  return { called: () => sandbox.called(name) }
+}
+
 export function mockGraphQL(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: Record<string, any>,
   name: string,
   body?: string,
   token?: string
-): typeof sandbox.mock {
+): Route {
   const response = { status: 200, body: data }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const matcher = (_: string, options: Record<string, any>): boolean => {
@@ -20,7 +30,7 @@ export function mockGraphQL(
 
     return options.body.toString().includes(body)
   }
-  return sandbox.mock(
+  sandbox.mock(
     {
       method: 'POST',
       url: 'https://api.github.com/graphql',
@@ -33,18 +43,21 @@ export function mockGraphQL(
     response,
     { sendAsJson: true }
   )
+  return route(name)
 }
 
 export function mockLabel(options?: {
   label?: string
   id?: string
   token?: string
-}): typeof sandbox.mock {
+}): Route {
   const defaults = { label: 'question', id: 'label123', token: 'TOKEN' }
   const { label, id, token } = { ...defaults, ...options }
 
-  return sandbox.mock(
+  const name = `label-${label}-${token}`
+  sandbox.mock(
     {
+      name,
       url: `https://api.github.com/repos/owner/repo/labels/${label}`,
       headers: { authorization: `token ${token}` }
     },
@@ -52,6 +65,7 @@ export function mockLabel(options?: {
       node_id: id
     }
   )
+  return route(name)
 }
 
 export function mockRepo(options?: {
@@ -59,12 +73,14 @@ export function mockRepo(options?: {
   name?: string
   id?: string
   token?: string
-}): typeof sandbox.mock {
+}): Route {
   const defaults = { owner: 'owner', name: 'repo', id: 'id123', token: 'TOKEN' }
   const { owner, name, id, token } = { ...defaults, ...options }
 
-  return sandbox.mock(
+  const routeName = `repo-${owner}/${name}-${token}`
+  sandbox.mock(
     {
+      name: routeName,
       url: `https://api.github.com/repos/${owner}/${name}`,
       headers: {
         authorization: `token ${token}`
@@ -74,13 +90,14 @@ export function mockRepo(options?: {
       node_id: id
     }
   )
+  return route(routeName)
 }
 
 export function mockCreateDiscussion(options?: {
   id?: string
   url?: string
   token?: string
-}): typeof sandbox.mock {
+}): Route {
   const defaults = {
     id: 'id123',
     url: 'https://github.com/owner/repo/discussions/1',
@@ -105,7 +122,7 @@ export function mockCreateDiscussion(options?: {
 export function mockCategory(options?: {
   categories?: { id: string; name: string }[]
   token?: string
-}): typeof sandbox.mock {
+}): Route {
   const defaults = {
     categories: [
       { id: '123', name: 'General' },
@@ -132,12 +149,12 @@ export function mockCategory(options?: {
 }
 
 export function mockLabelCreation(options?: {
-  label?: string
+  labelId?: string
   number?: number
   token?: string
-}): typeof sandbox.mock {
-  const defaults = { number: 1, token: 'TOKEN', label: 'question' }
-  const { number, token, label } = { ...defaults, ...options }
+}): Route {
+  const defaults = { number: 1, token: 'TOKEN', labelId: 'label123' }
+  const { number, token, labelId } = { ...defaults, ...options }
   const data = {
     data: {
       addLabelsToLabelable: {
@@ -147,16 +164,16 @@ export function mockLabelCreation(options?: {
       }
     }
   }
-  return mockGraphQL(data, 'addLabels', label, token)
+  return mockGraphQL(data, `addLabels-${labelId}`, `"${labelId}"`, token)
 }
 
 export function mockFileDeletion(options?: {
   url?: string
   sha?: string
-  token: string
+  token?: string
   path?: string
   publishedUrl?: string
-}): { getMock: typeof sandbox.mock; deleteMock: typeof sandbox.mock } {
+}): { getMock: Route; deleteMock: Route } {
   const defaults = {
     url: 'https://api.github.com/repos/source-owner/source-repo/contents/.%2F__tests__%2Ffixtures%2Fdraft.md',
     sha: 'sha123',
@@ -165,12 +182,11 @@ export function mockFileDeletion(options?: {
     publishedUrl: 'https://github.com/owner/repo/discussions/1'
   }
   const { url, sha, token, path, publishedUrl } = { ...defaults, ...options }
-  const message = `Delete ${path}
-    
-    The post has been published as ${publishedUrl}`
+  const message = `Delete ${path}\n\nThe post has been published as ${publishedUrl}`
 
-  const getMock = sandbox.mock(
+  sandbox.mock(
     {
+      name: 'getFile',
       url,
       method: 'GET',
       headers: {
@@ -179,8 +195,9 @@ export function mockFileDeletion(options?: {
     },
     { sha }
   )
-  const deleteMock = sandbox.mock(
+  sandbox.mock(
     {
+      name: 'deleteFile',
       url,
       body: {
         message,
@@ -194,25 +211,47 @@ export function mockFileDeletion(options?: {
     200
   )
 
-  return { getMock, deleteMock }
+  return { getMock: route('getFile'), deleteMock: route('deleteFile') }
 }
 
 export function mockPost(options?: {
-  nodes?: { id?: string; url?: string }[]
+  nodes?: { id?: string; url?: string; title?: string; createdAt?: string }[]
+  title?: string
   token?: string
-}): typeof sandbox.mock {
+  hasNextPage?: boolean
+  endCursor?: string | null
+  body?: string
+}): Route {
   const defaults = {
-    nodes: [
-      { id: 'post123', url: 'https://github.com/owner./repo/discussions/1' }
-    ]
+    title: 'Draft post',
+    hasNextPage: false,
+    endCursor: null,
+    body: 'orderBy'
   }
-  const { nodes, token } = { ...defaults, ...options }
+  const { title, token, hasNextPage, endCursor, body } = {
+    ...defaults,
+    ...options
+  }
+  const nodeDefaults = {
+    id: 'post123',
+    url: 'https://github.com/owner/repo/discussions/1',
+    title,
+    createdAt: '2024-01-02T00:00:00Z'
+  }
+  const nodes = (options?.nodes ?? [{}]).map(node => ({
+    ...nodeDefaults,
+    ...node
+  }))
   const responseData = {
     data: {
-      search: {
-        nodes
+      repository: {
+        discussions: {
+          nodes,
+          pageInfo: { hasNextPage, endCursor }
+        }
       }
     }
   }
-  return mockGraphQL(responseData, 'postIsPublished', 'search', token)
+  const name = `postIsPublished-${body.replace(/\W+/g, '-')}`
+  return mockGraphQL(responseData, name, body, token)
 }

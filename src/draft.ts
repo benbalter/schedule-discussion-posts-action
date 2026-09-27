@@ -1,14 +1,15 @@
 import * as fs from 'fs'
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import { parse } from 'yaml'
-import { octokit, repoOctokit, octokitForAuthor, withRetry } from './octokit'
-import { Repository } from './repo'
 import * as yaml from 'yaml'
 import * as chrono from 'chrono-node'
+import { octokit, repoOctokit, octokitForAuthor, withRetry } from './octokit'
+import { Repository } from './repo'
+import { isDryRun } from './inputs'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type GraphQlResponse = Record<string, any>
+interface CreateDiscussionResponse {
+  createDiscussion: { discussion: { id: string; url: string } }
+}
 
 const createMutation = `
   mutation($repositoryId: ID!, $body: String!, $title: String!, $categoryId: ID! ) {
@@ -98,37 +99,42 @@ export class Draft {
       return
     }
 
-    this.repository = new Repository(repoParts[0], repoParts[1], parsed.author)
-    this.title = parsed.title
-    this.body = this.interpolateVariables(parsed.body?.trim())
-    this.date = parsedDate
-    this.path = path
-    this.category = parsed.category
-    this.author = parsed.author?.replace('@', '')
+    const author =
+      parsed.author === undefined || parsed.author === null
+        ? ''
+        : String(parsed.author).trim().replace(/^@/, '')
 
-    if (parsed.labels !== undefined) {
-      const rawLabels = parsed.label || parsed.labels
-      this.labels = Array.isArray(rawLabels)
-        ? rawLabels.map((label: string) => String(label).trim())
-        : String(rawLabels)
-            .split(',')
-            .map((label: string) => label.trim())
-    } else {
-      this.labels = []
+    if (author !== '') {
+      this.author = author
+      const authorOctokit = octokitForAuthor(author)
+
+      if (authorOctokit !== undefined) {
+        this.octokit = authorOctokit
+        core.info(`Masquerading as ${author}`)
+      }
+    }
+
+    this.repository = new Repository(repoParts[0], repoParts[1], this.octokit)
+    this.title = parsed.title
+    this.date = parsedDate
+    this.category = parsed.category
+
+    const rawLabels = parsed.labels ?? parsed.label
+    if (rawLabels !== undefined && rawLabels !== null) {
+      const labels = Array.isArray(rawLabels)
+        ? rawLabels
+        : String(rawLabels).split(',')
+      this.labels = labels
+        .map((label: unknown) => String(label).trim())
+        .filter((label: string) => label !== '')
     }
 
     if (parsed.pin === true || parsed.pin === 'true') {
       this.pin = true
     }
 
-    if (parsed.author !== undefined && parsed.author !== '') {
-      const authorOctokit = octokitForAuthor(parsed.author)
-
-      if (authorOctokit !== undefined) {
-        this.octokit = authorOctokit
-        core.info(`Masquerading as ${parsed.author}`)
-      }
-    }
+    // Interpolate last, so every variable is populated
+    this.body = this.interpolateVariables(parsed.body?.trim())
 
     core.info(
       `Front Matter for draft ${this.path}: \n${yaml.stringify(parsed)}`
@@ -163,7 +169,7 @@ export class Draft {
       return
     }
 
-    const parsed = parse(frontMatter[1])
+    const parsed = yaml.parse(frontMatter[1])
     const body = this.contents.replace(frontMatter[0], '')
 
     return { ...parsed, body }
@@ -211,11 +217,9 @@ export class Draft {
       return
     }
 
-    const message = `Delete ${this.path}
-    
-    The post has been published as ${this.url}`
+    const message = `Delete ${this.path}\n\nThe post has been published as ${this.url}`
 
-    if (core.getInput('dry_run') === 'true') {
+    if (isDryRun()) {
       core.info(`Dry run enabled. Skipping deleting draft: ${this.path}`)
       return
     }
@@ -245,7 +249,7 @@ export class Draft {
       return
     }
 
-    if (core.getInput('dry_run') === 'true') {
+    if (isDryRun()) {
       core.info(
         `Dry run enabled. Skipping setting labels. Would have set: ${this.labels}`
       )
@@ -309,7 +313,7 @@ export class Draft {
     }
     core.debug(`Repository ID: ${repoId}`)
 
-    if (core.getInput('dry_run') !== 'true') {
+    if (!isDryRun()) {
       core.info(`Publishing post: ${this.title}`)
       const variables = {
         repositoryId: repoId,
@@ -317,17 +321,35 @@ export class Draft {
         body: this.body,
         categoryId
       }
-      const result: GraphQlResponse = await withRetry(
-        async () => this.octokit.graphql(createMutation, variables),
-        `Publishing discussion "${this.title}"`
-      )
-      core.notice(
-        `Published post: ${this.title} at ${result.createDiscussion.discussion.url}`
-      )
-      this.id = result.createDiscussion.discussion.id
-      this.url = result.createDiscussion.discussion.url
 
-      if (this.pin && this.id && this.repository) {
+      // createDiscussion isn't idempotent: a request can succeed on GitHub's
+      // side but still error (e.g., a timeout). Before retrying, check whether
+      // the previous attempt actually created the discussion.
+      let attempt = 0
+      const discussion = await withRetry(async () => {
+        if (attempt++ > 0 && this.title && this.date && this.repository) {
+          const existing = await this.repository.findDiscussion(
+            this.title,
+            this.date
+          )
+          if (existing !== undefined) {
+            core.info('Previous attempt created the discussion. Not retrying.')
+            return existing
+          }
+        }
+
+        const result = await this.octokit.graphql<CreateDiscussionResponse>(
+          createMutation,
+          variables
+        )
+        return result.createDiscussion.discussion
+      }, `Publishing discussion "${this.title}"`)
+
+      core.notice(`Published post: ${this.title} at ${discussion.url}`)
+      this.id = discussion.id
+      this.url = discussion.url
+
+      if (this.pin && this.repository) {
         await this.repository.pinDiscussion(this.id)
       }
 
@@ -359,22 +381,20 @@ export class Draft {
     return this.date < new Date()
   }
 
-  async isPublished(): Promise<boolean | undefined> {
-    if (this.repository === undefined) {
-      core.setFailed(
-        'Repository is undefined. Cannot check if post is published.'
+  /**
+   * Whether this draft has already been posted to the target repository. If
+   * so, records the existing discussion's ID and URL. Throws if the lookup
+   * fails.
+   */
+  async isPublished(): Promise<boolean> {
+    if (
+      this.repository === undefined ||
+      this.title === undefined ||
+      this.date === undefined
+    ) {
+      throw new Error(
+        `Cannot check if ${this.path} is published: repository, title, or date is missing.`
       )
-      return
-    }
-
-    if (this.title === undefined) {
-      core.setFailed('Title is undefined. Cannot check if post is published.')
-      return
-    }
-
-    if (this.date === undefined) {
-      core.setFailed('Date is undefined. Cannot check if post is published.')
-      return
     }
 
     const discussion = await this.repository.findDiscussion(
@@ -386,6 +406,7 @@ export class Draft {
     }
 
     this.id = discussion.id
+    this.url = discussion.url
 
     return true
   }
