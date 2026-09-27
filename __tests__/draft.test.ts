@@ -1,5 +1,6 @@
 import * as core from '@actions/core'
-import { sandbox, octokit } from '../src/octokit'
+import { octokit } from '../src/octokit'
+import { sandbox } from './sandbox'
 import { Draft } from '../src/draft'
 import {
   mockLabel,
