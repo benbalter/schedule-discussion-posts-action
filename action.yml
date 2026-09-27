@@ -3,7 +3,7 @@ description:
   This action will create a discussion post in a repository at a scheduled time.
 author: Ben Balter
 runs:
-  using: node20
+  using: node24
   main: dist/index.js
 inputs:
   repo_token:

@@ -75,6 +75,9 @@ jobs:
           discussion_token: ${{ secrets.DISCUSSION_TOKEN }}
 ```
 
+The Action runs on Node.js 24, so self-hosted runners and GitHub Enterprise
+Server need a runner version that supports `node24` actions.
+
 This will run approximately on the top of the hour, every hour to check for
 posts to publish. You can use tools like `crontab.guru` to adjust the schedule
 to your liking.

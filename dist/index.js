@@ -30056,7 +30056,7 @@ class Draft {
             core.debug(`Reading draft: ${this.path}`);
             return fs.readFileSync(this.path, 'utf8');
         }
-        catch (error) {
+        catch {
             core.warning(`Cannot find or read file "${this.path}". Check that the filename is spelled correctly and exists in the repository.`);
         }
     }
@@ -30675,7 +30675,7 @@ class Repository {
             });
             return label.node_id;
         }
-        catch (error) {
+        catch {
             core.setFailed(`Label "${name}" was not found in ${this.owner}/${this.name}. Create it in the repository's Labels settings, or remove it from the draft metadata.`);
             return;
         }
@@ -30725,7 +30725,7 @@ class Repository {
         try {
             response = await this.octokit.graphql(discussionCategoryQuery, variables);
         }
-        catch (error) {
+        catch {
             core.setFailed(`Cannot access ${this.owner}/${this.name}. Check that: (1) the repository exists, (2) your Personal Access Token has access, (3) Discussions are enabled in the repository settings.`);
             return;
         }
@@ -30747,7 +30747,7 @@ class Repository {
             });
             return repo.node_id;
         }
-        catch (error) {
+        catch {
             core.setFailed(`Unable to access repository ${this.owner}/${this.name}. Check that the repository exists and your Personal Access Token has access to it.`);
             return;
         }
@@ -30758,7 +30758,7 @@ class Repository {
             await this.octokit.graphql(pinDiscussionMutation, { discussionId });
             core.info('Discussion pinned successfully');
         }
-        catch (error) {
+        catch {
             core.warning(`Could not pin the discussion. This may require additional permissions on your Personal Access Token. The post was still published successfully.`);
         }
     }
@@ -30771,7 +30771,7 @@ class Repository {
             });
             core.info(`✅ Repository ${this.owner}/${this.name} exists and is accessible`);
         }
-        catch (error) {
+        catch {
             core.setFailed(`❌ Cannot access repository ${this.owner}/${this.name}. Check that: (1) the repository exists, (2) your Personal Access Token has access, (3) Discussions are enabled.`);
             valid = false;
         }
@@ -57053,7 +57053,6 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
  * The entrypoint for the action.
  */
 const main_1 = __nccwpck_require__(1730);
-// eslint-disable-next-line @typescript-eslint/no-floating-promises
 (0, main_1.run)();
 
 })();

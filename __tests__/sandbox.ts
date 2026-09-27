@@ -1,4 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/no-var-requires, import/no-commonjs, @typescript-eslint/no-require-imports
+// eslint-disable-next-line import/no-commonjs, @typescript-eslint/no-require-imports
 export const sandbox = require('fetch-mock').sandbox()
 
 // Clients fetch through global.fetch in tests (see ./setup.ts), so every

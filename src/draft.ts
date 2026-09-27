@@ -146,7 +146,7 @@ export class Draft {
     try {
       core.debug(`Reading draft: ${this.path}`)
       return fs.readFileSync(this.path, 'utf8')
-    } catch (error) {
+    } catch {
       core.warning(
         `Cannot find or read file "${this.path}". Check that the filename is spelled correctly and exists in the repository.`
       )
