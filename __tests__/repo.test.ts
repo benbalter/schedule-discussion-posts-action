@@ -1,4 +1,5 @@
-import { sandbox, octokitForAuthor } from '../src/octokit'
+import { octokitForAuthor } from '../src/octokit'
+import { sandbox } from './sandbox'
 import { Repository } from '../src/repo'
 import {
   mockLabel,

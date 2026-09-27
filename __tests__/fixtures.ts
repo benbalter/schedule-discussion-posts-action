@@ -1,4 +1,4 @@
-import { sandbox } from '../src/octokit'
+import { sandbox } from './sandbox'
 
 // A handle to one mocked route. (sandbox.mock() returns the whole sandbox, so
 // calling .called() on it reports whether *any* request was made.)

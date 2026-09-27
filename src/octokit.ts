@@ -1,55 +1,36 @@
-import 'dotenv/config'
 import * as github from '@actions/github'
 import * as core from '@actions/core'
 import { isDryRun } from './inputs'
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires, import/no-commonjs, @typescript-eslint/no-require-imports
-export const sandbox = require('fetch-mock').sandbox()
-let options = {}
-
-if (process.env.NODE_ENV === 'test') {
-  options = { request: { fetch: sandbox } }
+// An invalid dry_run value is reported by run(); don't throw at module load
+let dryRun = false
+try {
+  dryRun = isDryRun()
+} catch {
+  dryRun = false
 }
 
-let discussionToken: string
-let repoToken: string
-
-// Avoid errors for missing tokens when running tests
-if (process.env.NODE_ENV === 'test') {
-  discussionToken = 'TOKEN'
-  repoToken = 'REPO_TOKEN'
-  core.info('Running in test mode')
-} else {
-  // An invalid dry_run value is reported by run(); don't throw at module load
-  let dryRun = false
-  try {
-    dryRun = isDryRun()
-  } catch {
-    dryRun = false
+// Yes, we could set { required: true } below, but this provides more
+// human-friendly error messages.
+for (const token of ['discussion_token', 'repo_token']) {
+  // discussion_token is not required in dry-run mode as no discussions are published
+  if (token === 'discussion_token' && dryRun) continue
+  if (core.getInput(token) === '') {
+    core.setFailed(
+      `${token} is required. Pass as a "with" parameter in your workflow file.`
+    )
   }
-
-  // Yes, we could set { required: true } below, but this provides more
-  // human-friendly error messages.
-  for (const token of ['discussion_token', 'repo_token']) {
-    // discussion_token is not required in dry-run mode as no discussions are published
-    if (token === 'discussion_token' && dryRun) continue
-    if (core.getInput(token) === '') {
-      core.setFailed(
-        `${token} is required. Pass as a "with" parameter in your workflow file.`
-      )
-    }
-  }
-
-  repoToken = core.getInput('repo_token')
-  // In dry-run mode, fall back to repo_token when discussion_token is not provided
-  discussionToken = core.getInput('discussion_token') || repoToken
 }
+
+const repoToken = core.getInput('repo_token')
+// In dry-run mode, fall back to repo_token when discussion_token is not provided
+const discussionToken = core.getInput('discussion_token') || repoToken
 
 // Octokit instance with discussion create scope for the target repo
-export const octokit = github.getOctokit(discussionToken, options)
+export const octokit = github.getOctokit(discussionToken)
 
 // Octokit instance with the default Actions token for the current repo
-export const repoOctokit = github.getOctokit(repoToken, options)
+export const repoOctokit = github.getOctokit(repoToken)
 
 export function octokitForAuthor(author: string): undefined | typeof octokit {
   const input = `discussion_token_${author.replaceAll(/-/g, '_')}`
@@ -60,7 +41,7 @@ export function octokitForAuthor(author: string): undefined | typeof octokit {
     )
     return
   }
-  return github.getOctokit(token, options)
+  return github.getOctokit(token)
 }
 
 export async function withRetry<T>(

@@ -2,7 +2,7 @@ import * as core from '@actions/core'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import { sandbox } from '../src/octokit'
+import { sandbox } from './sandbox'
 import { Draft } from '../src/draft'
 import { run } from '../src/main'
 import {
