@@ -2,11 +2,17 @@ import * as core from '@actions/core'
 import * as fs from 'fs'
 import * as path from 'path'
 import { Draft } from './draft'
+import { isDryRun } from './inputs'
 
 interface DraftResult {
   path: string
   title: string
-  status: 'published' | 'skipped_future' | 'skipped_published' | 'invalid'
+  status:
+    | 'published'
+    | 'skipped_future'
+    | 'skipped_published'
+    | 'invalid'
+    | 'failed'
   url?: string
   targetRepo?: string
 }
@@ -85,7 +91,8 @@ async function writeSummary(results: DraftResult[]): Promise<void> {
       published: '✅ Published',
       skipped_future: '⏳ Scheduled',
       skipped_published: '⚠️ Already published',
-      invalid: '❌ Invalid'
+      invalid: '❌ Invalid',
+      failed: '❌ Failed'
     }[result.status]
 
     rows.push([
@@ -99,102 +106,94 @@ async function writeSummary(results: DraftResult[]): Promise<void> {
   await core.summary
     .addHeading('Discussion Posts Summary', 2)
     .addTable(
-      rows.map(row =>
+      rows.map((row, index) =>
         row.map(cell => ({
           data: cell,
-          header: rows.indexOf(row) === 0
+          header: index === 0
         }))
       )
     )
     .write()
 }
 
+async function processDraft(
+  draft: Draft,
+  dryRun: boolean
+): Promise<DraftResult> {
+  const result: DraftResult = {
+    path: draft.path,
+    title: draft.title || draft.path,
+    status: 'invalid'
+  }
+
+  if (!draft.valid) {
+    core.warning(`Skipping invalid draft: ${draft.path}`)
+    return result
+  }
+
+  result.targetRepo = `${draft.repository?.owner}/${draft.repository?.name}`
+
+  if (!draft.isPast && !dryRun) {
+    core.info(
+      `Skipping draft ${draft.path} with date ${draft.date} as it is in the future`
+    )
+    return { ...result, status: 'skipped_future' }
+  }
+
+  if (await draft.isPublished()) {
+    core.warning(`Draft ${draft.title} is already published at ${draft.url}`)
+
+    // A previous run published the post but failed to delete the draft
+    if (!dryRun) {
+      await draft.delete()
+    }
+
+    return { ...result, status: 'skipped_published', url: draft.url }
+  }
+
+  await draft.publish()
+
+  if (draft.url === undefined) {
+    return { ...result, status: dryRun ? 'invalid' : 'failed' }
+  }
+
+  return { ...result, status: 'published', url: draft.url }
+}
+
 async function cron(): Promise<void> {
-  let drafts: Draft[]
-  const dryRun = core.getInput('dry_run')
+  const dryRun = isDryRun()
   const results: DraftResult[] = []
 
-  if (dryRun === 'true') {
+  if (dryRun) {
     core.info('Dry run enabled. Skipping publishing drafts')
   }
 
   const changed = getChangedFiles()
-  if (changed.length > 0) {
-    drafts = changed
-  } else {
-    drafts = getDrafts()
-  }
+  const drafts = changed.length > 0 ? changed : getDrafts()
 
-  const pathsToProcess = drafts.map(draft => draft.path)
   core.info(`Found ${drafts.length} drafts`)
-  core.info(`Processing drafts: ${pathsToProcess.join(', ')}`)
-
-  const publishedUrls: string[] = []
-  let publishedCount = 0
-  let skippedCount = 0
+  core.info(`Processing drafts: ${drafts.map(d => d.path).join(', ')}`)
 
   for (const draft of drafts) {
-    if (!draft.valid) {
-      core.warning(`Skipping invalid draft: ${draft.path}`)
+    try {
+      results.push(await processDraft(draft, dryRun))
+    } catch (error) {
+      // Keep going so one bad draft doesn't block the rest
+      core.setFailed(`Failed to process draft ${draft.path}: ${error}`)
       results.push({
         path: draft.path,
         title: draft.title || draft.path,
-        status: 'invalid'
-      })
-      skippedCount++
-      continue
-    }
-
-    if (!draft.isPast && dryRun === 'false') {
-      core.info(
-        `Skipping draft ${draft.path} with date ${draft.date} as it is in the future`
-      )
-      results.push({
-        path: draft.path,
-        title: draft.title || draft.path,
-        status: 'skipped_future',
-        targetRepo: `${draft.repository?.owner}/${draft.repository?.name}`
-      })
-      skippedCount++
-      continue
-    }
-
-    if (await draft.isPublished()) {
-      core.warning(`draft ${draft.title} is already published`)
-      results.push({
-        path: draft.path,
-        title: draft.title || draft.path,
-        status: 'skipped_published',
-        targetRepo: `${draft.repository?.owner}/${draft.repository?.name}`
-      })
-      skippedCount++
-      continue
-    }
-
-    await draft.publish()
-
-    if (draft.url) {
-      publishedCount++
-      publishedUrls.push(draft.url)
-      results.push({
-        path: draft.path,
-        title: draft.title || draft.path,
-        status: 'published',
-        url: draft.url,
-        targetRepo: `${draft.repository?.owner}/${draft.repository?.name}`
-      })
-    } else {
-      skippedCount++
-      results.push({
-        path: draft.path,
-        title: draft.title || draft.path,
-        status: 'invalid',
-        targetRepo: `${draft.repository?.owner}/${draft.repository?.name}`
+        status: 'failed'
       })
     }
   }
 
-  core.setOutput('published_count', publishedCount.toString())
+  const publishedUrls = results
+    .filter(result => result.status === 'published')
+    .map(result => result.url)
+  const skippedCount = results.length - publishedUrls.length
+
+  core.setOutput('published_count', publishedUrls.length.toString())
   core.setOutput('skipped_count', skippedCount.toString())
   core.setOutput('published_urls', JSON.stringify(publishedUrls))
 

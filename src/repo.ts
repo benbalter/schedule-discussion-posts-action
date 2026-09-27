@@ -1,16 +1,46 @@
-import { octokit, octokitForAuthor, withRetry } from './octokit'
+import { octokit, withRetry } from './octokit'
 import * as core from '@actions/core'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type GraphQlResponse = Record<string, any>
+export interface Discussion {
+  id: string
+  url: string
+  title: string
+  createdAt: string
+}
 
-const searchQuery = `
-  query($q: String!) {
-    search(type:DISCUSSION, query: $q, last: 100) {
-      nodes {
-        ... on Discussion {
-          url
+interface DiscussionsResponse {
+  repository: {
+    discussions: {
+      nodes: Discussion[]
+      pageInfo: { hasNextPage: boolean; endCursor: string | null }
+    }
+  }
+}
+
+interface CategoriesResponse {
+  repository: {
+    discussionCategories: { nodes: { id: string; name: string }[] }
+  }
+}
+
+// Max pages of recent discussions to scan when checking for duplicates
+const MAX_DISCUSSION_PAGES = 10
+
+// Lists discussions directly rather than using search, which is fuzzy and
+// lags behind newly created discussions
+const discussionsQuery = `
+  query($owner: String!, $name: String!, $after: String) {
+    repository(owner: $owner, name: $name) {
+      discussions(first: 50, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
+        nodes {
           id
+          url
+          title
+          createdAt
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
         }
       }
     }
@@ -45,18 +75,10 @@ export class Repository {
   name: string
   octokit: typeof octokit
 
-  constructor(owner: string, name: string, authAs?: string) {
+  constructor(owner: string, name: string, client: typeof octokit = octokit) {
     this.owner = owner
     this.name = name
-    this.octokit = octokit
-
-    if (authAs !== undefined && authAs !== '') {
-      const authorOctokit = octokitForAuthor(authAs)
-
-      if (authorOctokit !== undefined) {
-        this.octokit = authorOctokit
-      }
-    }
+    this.octokit = client
   }
 
   async getLabelId(name: string): Promise<string | undefined> {
@@ -76,34 +98,61 @@ export class Repository {
     }
   }
 
+  /**
+   * Finds a discussion with exactly the given title created on or after the
+   * (UTC) day of the given date. Throws if the lookup fails, so callers never
+   * mistake an API error for "not published".
+   */
   async findDiscussion(
     title: string,
     date: Date
-  ): Promise<{ id: string; url: string } | undefined> {
-    const formattedDate = date.toISOString().split('T')[0]
-    const query = `repo:${this.owner}/${this.name} is:discussion in:title ${title} created:>=${formattedDate}`
-    core.debug(`Searching for discussion: ${query}`)
-    try {
-      const response: GraphQlResponse = await withRetry(
-        async () => this.octokit.graphql(searchQuery, { q: query }),
+  ): Promise<Discussion | undefined> {
+    const cutoff = new Date(date.toISOString().split('T')[0])
+    let after: string | null = null
+
+    core.debug(
+      `Looking for discussion "${title}" in ${this.owner}/${this.name} created since ${cutoff.toISOString()}`
+    )
+
+    for (let page = 0; page < MAX_DISCUSSION_PAGES; page++) {
+      const variables = { owner: this.owner, name: this.name, after }
+      const response: DiscussionsResponse = await withRetry(
+        async () => this.octokit.graphql(discussionsQuery, variables),
         `Searching for discussion "${title}"`
       )
-      const results = response.search.nodes
-      if (results.length === 0) {
-        core.info(
-          `👍🏻 No existing discussion found with title "${title}" and date ${date}`
-        )
-        return
-      } else {
-        core.setFailed(
-          `🛑 Found existing discussion with title "${title}" and date ${date}: ${results[0].url}`
-        )
+      const { nodes, pageInfo } = response.repository.discussions
+
+      for (const discussion of nodes) {
+        // Results are newest first, so everything after this is older
+        if (new Date(discussion.createdAt) < cutoff) {
+          return this.notFound(title, date)
+        }
+
+        if (discussion.title === title) {
+          core.info(
+            `Found existing discussion with title "${title}" and date ${date}: ${discussion.url}`
+          )
+          return discussion
+        }
       }
-      return results[0]
-    } catch (error) {
-      core.setFailed(`Failed to search for discussion: ${title} (${error})`)
-      return
+
+      if (!pageInfo.hasNextPage) {
+        return this.notFound(title, date)
+      }
+      after = pageInfo.endCursor
     }
+
+    core.warning(
+      `Stopped looking for "${title}" after ${MAX_DISCUSSION_PAGES} pages of discussions in ${this.owner}/${this.name}`
+    )
+    return this.notFound(title, date)
+  }
+
+  private notFound(title: string, date: Date): undefined {
+    core.info(
+      `👍🏻 No existing discussion found with title "${title}" and date ${date}`
+    )
+    return
   }
 
   async getCategoryId(name: string): Promise<string | undefined> {
@@ -114,7 +163,7 @@ export class Repository {
       name: this.name
     }
 
-    let response: GraphQlResponse
+    let response: CategoriesResponse
     try {
       response = await this.octokit.graphql(discussionCategoryQuery, variables)
     } catch (error) {
@@ -124,8 +173,7 @@ export class Repository {
       return
     }
 
-    const categories: { name: string; id: string }[] =
-      response.repository.discussionCategories.nodes
+    const categories = response.repository.discussionCategories.nodes
     const category = categories.find(cat => cat.name === name)
     const availableNames = categories.map(cat => cat.name).join(', ')
 

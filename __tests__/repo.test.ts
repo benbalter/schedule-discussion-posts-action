@@ -1,4 +1,4 @@
-import { sandbox } from '../src/octokit'
+import { sandbox, octokitForAuthor } from '../src/octokit'
 import { Repository } from '../src/repo'
 import {
   mockLabel,
@@ -16,6 +16,8 @@ describe('Repo', () => {
   for (const author of [undefined, 'author']) {
     describe(`with author: ${author || 'default'}`, () => {
       let token: string
+      const client = (): ReturnType<typeof octokitForAuthor> =>
+        author ? octokitForAuthor(author) : undefined
 
       beforeAll(() => {
         if (author === 'author') {
@@ -28,7 +30,7 @@ describe('Repo', () => {
       })
 
       it("gets a repository's ID", async () => {
-        const repo = new Repository('owner', 'repo', author)
+        const repo = new Repository('owner', 'repo', client())
         const id = '123'
         mockRepo({ id, token })
         const result = await repo.getId()
@@ -36,7 +38,7 @@ describe('Repo', () => {
       })
 
       it("gets a label's ID", async () => {
-        const repo = new Repository('owner', 'repo', author)
+        const repo = new Repository('owner', 'repo', client())
         const id = '123'
         mockLabel({ id: '123', token })
         const result = await repo.getLabelId('question')
@@ -44,7 +46,7 @@ describe('Repo', () => {
       })
 
       it('gets a category ID', async () => {
-        const repo = new Repository('owner', 'repo', author)
+        const repo = new Repository('owner', 'repo', client())
         const category = 'General'
         const id = '123'
         mockCategory({
@@ -59,12 +61,12 @@ describe('Repo', () => {
       })
 
       it('knows when a post has been published', async () => {
-        const repo = new Repository('owner', 'repo', author)
+        const repo = new Repository('owner', 'repo', client())
         const title = 'matched post'
         const date = new Date('2021-01-01')
         const id = 'post123'
         const url = 'https://github.com/owner./repo/discussions/1'
-        mockPost({ nodes: [{ id, url }], token })
+        mockPost({ nodes: [{ id, url, title }], token })
         const result = await repo.findDiscussion(title, date)
         expect(result).toBeDefined()
         expect(result?.id).toBe(id)
@@ -72,12 +74,73 @@ describe('Repo', () => {
       })
 
       it('knows when a post has not been published', async () => {
-        const repo = new Repository('owner', 'repo', author)
+        const repo = new Repository('owner', 'repo', client())
         const title = 'missing post'
         const date = new Date('2021-01-01')
         mockPost({ nodes: [], token })
         const result = await repo.findDiscussion(title, date)
         expect(result).toBeUndefined()
+      })
+
+      it('ignores discussions whose title only partially matches', async () => {
+        const repo = new Repository('owner', 'repo', client())
+        mockPost({ nodes: [{ title: 'matched post, part 2' }], token })
+        const result = await repo.findDiscussion(
+          'matched post',
+          new Date('2021-01-01')
+        )
+        expect(result).toBeUndefined()
+      })
+
+      it('ignores matching discussions created before the draft date', async () => {
+        const repo = new Repository('owner', 'repo', client())
+        mockPost({
+          nodes: [{ title: 'weekly post', createdAt: '2020-12-25T00:00:00Z' }],
+          token
+        })
+        const result = await repo.findDiscussion(
+          'weekly post',
+          new Date('2021-01-01')
+        )
+        expect(result).toBeUndefined()
+      })
+
+      it('pages through discussions', async () => {
+        const repo = new Repository('owner', 'repo', client())
+        mockPost({
+          nodes: [{ id: 'older', title: 'paged post' }],
+          body: '"after":"cursor1"',
+          token
+        })
+        mockPost({
+          nodes: [{ title: 'something else' }],
+          hasNextPage: true,
+          endCursor: 'cursor1',
+          body: '"after":null',
+          token
+        })
+        const result = await repo.findDiscussion(
+          'paged post',
+          new Date('2021-01-01')
+        )
+        // 'older' is only on the second page
+        expect(sandbox.calls(true)).toHaveLength(2)
+        expect(result?.id).toBe('older')
+      })
+
+      it('throws when the lookup fails', async () => {
+        jest.useFakeTimers()
+        const repo = new Repository('owner', 'repo', client())
+        sandbox.mock(
+          { method: 'POST', url: 'https://api.github.com/graphql' },
+          { status: 500, body: { message: 'Server Error' } }
+        )
+        const promise = repo.findDiscussion('any', new Date('2021-01-01'))
+        // eslint-disable-next-line jest/valid-expect
+        const assertion = expect(promise).rejects.toThrow()
+        await jest.advanceTimersByTimeAsync(10000)
+        await assertion
+        jest.useRealTimers()
       })
     })
   }
