@@ -106,6 +106,51 @@ describe('Repo', () => {
         expect(result).toBeUndefined()
       })
 
+      it('ignores matching discussions by a different author', async () => {
+        const repo = new Repository('owner', 'repo', client())
+        mockPost({
+          nodes: [
+            { title: 'weekly update', author: { login: 'someone-else' } }
+          ],
+          token
+        })
+        const result = await repo.findDiscussion(
+          'weekly update',
+          new Date('2021-01-01'),
+          'author'
+        )
+        expect(result).toBeUndefined()
+      })
+
+      it('matches the author case-insensitively', async () => {
+        const repo = new Repository('owner', 'repo', client())
+        mockPost({
+          nodes: [{ title: 'weekly update', author: { login: 'Author' } }],
+          token
+        })
+        const result = await repo.findDiscussion(
+          'weekly update',
+          new Date('2021-01-01'),
+          'author'
+        )
+        expect(result).toBeDefined()
+      })
+
+      it('matches any author when none is given', async () => {
+        const repo = new Repository('owner', 'repo', client())
+        mockPost({
+          nodes: [
+            { title: 'weekly update', author: { login: 'someone-else' } }
+          ],
+          token
+        })
+        const result = await repo.findDiscussion(
+          'weekly update',
+          new Date('2021-01-01')
+        )
+        expect(result).toBeDefined()
+      })
+
       it('pages through discussions', async () => {
         const repo = new Repository('owner', 'repo', client())
         mockPost({
