@@ -49359,6 +49359,9 @@ const discussionsQuery = `
           url
           title
           createdAt
+          author {
+            login
+          }
         }
         pageInfo {
           hasNextPage
@@ -49415,10 +49418,12 @@ class Repository {
     }
     /**
      * Finds a discussion with exactly the given title created on or after the
-     * (UTC) day of the given date. Throws if the lookup fails, so callers never
-     * mistake an API error for "not published".
+     * (UTC) day of the given date. When an author is given, the discussion must
+     * also be theirs, so two people posting the same recurring title (e.g., a
+     * weekly update) don't count as each other's post. Throws if the lookup
+     * fails, so callers never mistake an API error for "not published".
      */
-    async findDiscussion(title, date) {
+    async findDiscussion(title, date, author) {
         const cutoff = new Date(date.toISOString().split('T')[0]);
         let after = null;
         core_debug(`Looking for discussion "${title}" in ${this.owner}/${this.name} created since ${cutoff.toISOString()}`);
@@ -49431,7 +49436,9 @@ class Repository {
                 if (new Date(discussion.createdAt) < cutoff) {
                     return this.notFound(title, date);
                 }
-                if (discussion.title === title) {
+                if (discussion.title === title &&
+                    (author === undefined ||
+                        discussion.author?.login.toLowerCase() === author.toLowerCase())) {
                     info(`Found existing discussion with title "${title}" and date ${date}: ${discussion.url}`);
                     return discussion;
                 }
@@ -49554,6 +49561,10 @@ class Draft {
     url;
     category;
     author;
+    // The author this draft actually posts as. Unset when the author has no
+    // token and the draft falls back to the default one, since the discussion
+    // then belongs to the token's user, not the author.
+    postingAs;
     pin = false;
     octokit;
     valid = false;
@@ -49597,6 +49608,7 @@ class Draft {
             const authorOctokit = octokitForAuthor(author);
             if (authorOctokit !== undefined) {
                 this.octokit = authorOctokit;
+                this.postingAs = author;
                 info(`Masquerading as ${author}`);
             }
         }
@@ -49765,7 +49777,7 @@ class Draft {
             let attempt = 0;
             const discussion = await withRetry(async () => {
                 if (attempt++ > 0 && this.title && this.date && this.repository) {
-                    const existing = await this.repository.findDiscussion(this.title, this.date);
+                    const existing = await this.repository.findDiscussion(this.title, this.date, this.postingAs);
                     if (existing !== undefined) {
                         info('Previous attempt created the discussion. Not retrying.');
                         return existing;
@@ -49814,7 +49826,7 @@ class Draft {
             this.date === undefined) {
             throw new Error(`Cannot check if ${this.path} is published: repository, title, or date is missing.`);
         }
-        const discussion = await this.repository.findDiscussion(this.title, this.date);
+        const discussion = await this.repository.findDiscussion(this.title, this.date, this.postingAs);
         if (discussion === undefined) {
             return false;
         }

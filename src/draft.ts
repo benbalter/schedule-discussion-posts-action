@@ -46,6 +46,10 @@ export class Draft {
   url: string | undefined
   category: string | undefined
   author: string | undefined
+  // The author this draft actually posts as. Unset when the author has no
+  // token and the draft falls back to the default one, since the discussion
+  // then belongs to the token's user, not the author.
+  postingAs: string | undefined
   pin = false
   octokit: typeof octokit
   valid = false
@@ -110,6 +114,7 @@ export class Draft {
 
       if (authorOctokit !== undefined) {
         this.octokit = authorOctokit
+        this.postingAs = author
         core.info(`Masquerading as ${author}`)
       }
     }
@@ -330,7 +335,8 @@ export class Draft {
         if (attempt++ > 0 && this.title && this.date && this.repository) {
           const existing = await this.repository.findDiscussion(
             this.title,
-            this.date
+            this.date,
+            this.postingAs
           )
           if (existing !== undefined) {
             core.info('Previous attempt created the discussion. Not retrying.')
@@ -399,7 +405,8 @@ export class Draft {
 
     const discussion = await this.repository.findDiscussion(
       this.title,
-      this.date
+      this.date,
+      this.postingAs
     )
     if (discussion === undefined) {
       return false

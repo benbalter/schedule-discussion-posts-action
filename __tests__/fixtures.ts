@@ -215,7 +215,13 @@ export function mockFileDeletion(options?: {
 }
 
 export function mockPost(options?: {
-  nodes?: { id?: string; url?: string; title?: string; createdAt?: string }[]
+  nodes?: {
+    id?: string
+    url?: string
+    title?: string
+    createdAt?: string
+    author?: { login: string } | null
+  }[]
   title?: string
   token?: string
   hasNextPage?: boolean
@@ -236,7 +242,8 @@ export function mockPost(options?: {
     id: 'post123',
     url: 'https://github.com/owner/repo/discussions/1',
     title,
-    createdAt: '2024-01-02T00:00:00Z'
+    createdAt: '2024-01-02T00:00:00Z',
+    author: { login: 'author' }
   }
   const nodes = (options?.nodes ?? [{}]).map(node => ({
     ...nodeDefaults,

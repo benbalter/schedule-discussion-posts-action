@@ -6,6 +6,7 @@ export interface Discussion {
   url: string
   title: string
   createdAt: string
+  author: { login: string } | null
 }
 
 interface DiscussionsResponse {
@@ -37,6 +38,9 @@ const discussionsQuery = `
           url
           title
           createdAt
+          author {
+            login
+          }
         }
         pageInfo {
           hasNextPage
@@ -100,12 +104,15 @@ export class Repository {
 
   /**
    * Finds a discussion with exactly the given title created on or after the
-   * (UTC) day of the given date. Throws if the lookup fails, so callers never
-   * mistake an API error for "not published".
+   * (UTC) day of the given date. When an author is given, the discussion must
+   * also be theirs, so two people posting the same recurring title (e.g., a
+   * weekly update) don't count as each other's post. Throws if the lookup
+   * fails, so callers never mistake an API error for "not published".
    */
   async findDiscussion(
     title: string,
-    date: Date
+    date: Date,
+    author?: string
   ): Promise<Discussion | undefined> {
     const cutoff = new Date(date.toISOString().split('T')[0])
     let after: string | null = null
@@ -128,7 +135,11 @@ export class Repository {
           return this.notFound(title, date)
         }
 
-        if (discussion.title === title) {
+        if (
+          discussion.title === title &&
+          (author === undefined ||
+            discussion.author?.login.toLowerCase() === author.toLowerCase())
+        ) {
           core.info(
             `Found existing discussion with title "${title}" and date ${date}: ${discussion.url}`
           )
