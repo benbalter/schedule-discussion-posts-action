@@ -23,19 +23,18 @@
   },
   "scripts": {
     "bundle": "npm run format:write && npm run package",
-    "ci-test": "npx jest",
+    "ci-test": "NODE_OPTIONS=--experimental-vm-modules npx jest",
     "format:write": "npx prettier --write .",
     "format:check": "npx prettier --check .",
     "lint": "npx eslint .",
     "package": "npx ncc build src/index.ts -o dist --source-map --license licenses.txt",
     "package:watch": "npm run package -- --watch",
-    "test": "npx jest",
+    "test": "NODE_OPTIONS=--experimental-vm-modules npx jest",
     "all": "npm run format:write && npm run lint && npm run test && npm run package",
     "cron": "node --env-file-if-exists=.env --import tsx src/index.ts"
   },
   "license": "MIT",
   "jest": {
-    "preset": "ts-jest",
     "verbose": true,
     "clearMocks": true,
     "testEnvironment": "node",
@@ -51,7 +50,12 @@
       "/dist/"
     ],
     "transform": {
-      "^.+\\.ts$": "ts-jest"
+      "^.+\\.ts$": [
+        "ts-jest",
+        {
+          "useESM": true
+        }
+      ]
     },
     "coverageReporters": [
       "json-summary",
@@ -62,13 +66,16 @@
     "collectCoverageFrom": [
       "./src/**"
     ],
-    "setupFiles": [
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
+    "setupFilesAfterEnv": [
       "<rootDir>/__tests__/setup.ts"
     ]
   },
   "dependencies": {
-    "@actions/core": "^1.10.1",
-    "@actions/github": "^6.0.0",
+    "@actions/core": "^3.0.1",
+    "@actions/github": "^9.1.1",
     "chrono-node": "^2.7.6",
     "yaml": "^2.4.5"
   },
