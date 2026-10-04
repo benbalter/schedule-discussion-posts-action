@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals'
 import { octokitForAuthor } from '../src/octokit'
-import { sandbox } from './sandbox'
+import { resetSandbox, sandbox } from './sandbox'
 import { Repository } from '../src/repo'
 import {
   mockLabel,
@@ -12,7 +12,7 @@ import {
 
 describe('Repo', () => {
   beforeEach(() => {
-    sandbox.restore()
+    resetSandbox()
   })
 
   for (const author of [undefined, 'author']) {
@@ -171,14 +171,14 @@ describe('Repo', () => {
           new Date('2021-01-01')
         )
         // 'older' is only on the second page
-        expect(sandbox.calls(true)).toHaveLength(2)
+        expect(sandbox.callHistory.calls('matched')).toHaveLength(2)
         expect(result?.id).toBe('older')
       })
 
       it('throws when the lookup fails', async () => {
         jest.useFakeTimers()
         const repo = new Repository('owner', 'repo', client())
-        sandbox.mock(
+        sandbox.route(
           { method: 'POST', url: 'https://api.github.com/graphql' },
           { status: 500, body: { message: 'Server Error' } }
         )
@@ -210,7 +210,7 @@ describe('Repo', () => {
 
     it('returns false when repo is not accessible', async () => {
       const repo = new Repository('owner', 'repo')
-      sandbox.mock(
+      sandbox.route(
         {
           url: 'https://api.github.com/repos/owner/repo',
           headers: { authorization: 'token TOKEN' }
@@ -236,7 +236,7 @@ describe('Repo', () => {
 
     it('handles errors gracefully', async () => {
       const repo = new Repository('owner', 'repo')
-      sandbox.mock(
+      sandbox.route(
         {
           method: 'POST',
           url: 'https://api.github.com/graphql',

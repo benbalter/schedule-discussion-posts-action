@@ -3,7 +3,7 @@ import * as core from '@actions/core'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import { sandbox } from './sandbox'
+import { resetSandbox, sandbox } from './sandbox'
 import { Draft } from '../src/draft'
 import { run } from '../src/main'
 import {
@@ -30,7 +30,7 @@ describe('main', () => {
   )
 
   beforeEach(() => {
-    sandbox.restore()
+    resetSandbox()
     process.env.GITHUB_REPOSITORY = 'source-owner/source-repo'
     process.env.INPUT_DRY_RUN = 'false'
     process.env.GITHUB_STEP_SUMMARY = summaryFile
@@ -82,7 +82,7 @@ describe('main', () => {
 
     await run()
 
-    expect(sandbox.called()).toBe(false)
+    expect(sandbox.callHistory.called()).toBe(false)
     expect(outputs.published_count).toBe('0')
     expect(outputs.skipped_count).toBe('1')
   })
@@ -93,7 +93,7 @@ describe('main', () => {
 
     await run()
 
-    expect(sandbox.called()).toBe(false)
+    expect(sandbox.callHistory.called()).toBe(false)
     expect(setFailedSpy).toHaveBeenCalledWith(
       expect.stringContaining('dry_run')
     )

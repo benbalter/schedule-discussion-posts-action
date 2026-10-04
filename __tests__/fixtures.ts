@@ -1,13 +1,14 @@
+import type { CallLog } from 'fetch-mock'
 import { sandbox } from './sandbox'
 
-// A handle to one mocked route. (sandbox.mock() returns the whole sandbox, so
+// A handle to one mocked route. (sandbox.route() returns the whole sandbox, so
 // calling .called() on it reports whether *any* request was made.)
 export interface Route {
   called: () => boolean
 }
 
 function route(name: string): Route {
-  return { called: () => sandbox.called(name) }
+  return { called: () => sandbox.callHistory.called(name) }
 }
 
 export function mockGraphQL(
@@ -18,8 +19,7 @@ export function mockGraphQL(
   token?: string
 ): Route {
   const response = { status: 200, body: data }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const matcher = (_: string, options: Record<string, any>): boolean => {
+  const matcher = ({ options }: CallLog): boolean => {
     if (body == null) {
       return true
     }
@@ -30,7 +30,7 @@ export function mockGraphQL(
 
     return options.body.toString().includes(body)
   }
-  sandbox.mock(
+  sandbox.route(
     {
       method: 'POST',
       url: 'https://api.github.com/graphql',
@@ -38,10 +38,9 @@ export function mockGraphQL(
       headers: {
         authorization: `token ${token || 'TOKEN'}`
       },
-      functionMatcher: matcher
+      matcherFunction: matcher
     },
-    response,
-    { sendAsJson: true }
+    response
   )
   return route(name)
 }
@@ -55,7 +54,7 @@ export function mockLabel(options?: {
   const { label, id, token } = { ...defaults, ...options }
 
   const name = `label-${label}-${token}`
-  sandbox.mock(
+  sandbox.route(
     {
       name,
       url: `https://api.github.com/repos/owner/repo/labels/${label}`,
@@ -78,7 +77,7 @@ export function mockRepo(options?: {
   const { owner, name, id, token } = { ...defaults, ...options }
 
   const routeName = `repo-${owner}/${name}-${token}`
-  sandbox.mock(
+  sandbox.route(
     {
       name: routeName,
       url: `https://api.github.com/repos/${owner}/${name}`,
@@ -184,7 +183,7 @@ export function mockFileDeletion(options?: {
   const { url, sha, token, path, publishedUrl } = { ...defaults, ...options }
   const message = `Delete ${path}\n\nThe post has been published as ${publishedUrl}`
 
-  sandbox.mock(
+  sandbox.route(
     {
       name: 'getFile',
       url,
@@ -195,7 +194,7 @@ export function mockFileDeletion(options?: {
     },
     { sha }
   )
-  sandbox.mock(
+  sandbox.route(
     {
       name: 'deleteFile',
       url,

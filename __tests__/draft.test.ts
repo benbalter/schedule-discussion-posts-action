@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals'
 import * as core from '@actions/core'
 import { octokit } from '../src/octokit'
-import { sandbox } from './sandbox'
+import { resetSandbox, sandbox } from './sandbox'
 import { Draft } from '../src/draft'
 import {
   mockLabel,
@@ -15,7 +15,7 @@ import {
 
 describe('draft', () => {
   beforeEach(() => {
-    sandbox.restore()
+    resetSandbox()
     process.env.GITHUB_REPOSITORY = 'source-owner/source-repo'
   })
 
@@ -226,14 +226,14 @@ describe('draft', () => {
       it('does not create a duplicate when a failed attempt actually succeeded', async () => {
         jest.useFakeTimers()
         const draft = new Draft(fixture)
-        sandbox.mock(
+        sandbox.route(
           {
             method: 'POST',
             url: 'https://api.github.com/graphql',
             name: 'publishFails',
             headers: { authorization: `token ${token}` },
-            functionMatcher: (_: string, opts: { body?: string }) =>
-              String(opts.body).includes('createDiscussion')
+            matcherFunction: ({ options }) =>
+              String(options.body).includes('createDiscussion')
           },
           { status: 502, body: { message: 'Bad Gateway' } }
         )
@@ -257,7 +257,7 @@ describe('draft', () => {
         jest.useRealTimers()
 
         expect(findMock.called()).toBe(true)
-        expect(sandbox.calls('publishFails')).toHaveLength(1)
+        expect(sandbox.callHistory.calls('publishFails')).toHaveLength(1)
         expect(id).toBe('created-anyway')
       })
     })
