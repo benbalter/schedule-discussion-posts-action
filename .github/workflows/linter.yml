@@ -51,3 +51,10 @@ jobs:
           VALIDATE_BIOME_LINT: false
           VALIDATE_JAVASCRIPT_ES: false
           VALIDATE_TYPESCRIPT_ES: false
+          # ci.yml runs the repo's pinned Prettier; super-linter bundles its
+          # own version, which disagrees whenever the two drift apart
+          VALIDATE_JAVASCRIPT_PRETTIER: false
+          VALIDATE_JSON_PRETTIER: false
+          VALIDATE_MARKDOWN_PRETTIER: false
+          VALIDATE_TYPESCRIPT_PRETTIER: false
+          VALIDATE_YAML_PRETTIER: false
