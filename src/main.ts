@@ -8,11 +8,7 @@ interface DraftResult {
   path: string
   title: string
   status:
-    | 'published'
-    | 'skipped_future'
-    | 'skipped_published'
-    | 'invalid'
-    | 'failed'
+    'published' | 'skipped_future' | 'skipped_published' | 'invalid' | 'failed'
   url?: string
   targetRepo?: string
 }
