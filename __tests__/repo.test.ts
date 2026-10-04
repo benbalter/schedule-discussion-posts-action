@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals'
 import { octokitForAuthor } from '../src/octokit'
 import { sandbox } from './sandbox'
 import { Repository } from '../src/repo'

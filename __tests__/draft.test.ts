@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals'
 import * as core from '@actions/core'
 import { octokit } from '../src/octokit'
 import { sandbox } from './sandbox'

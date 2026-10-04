@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals'
 import * as core from '@actions/core'
 import * as fs from 'fs'
 import * as os from 'os'
