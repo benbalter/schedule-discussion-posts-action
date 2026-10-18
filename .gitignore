@@ -103,3 +103,5 @@ __tests__/runner/*
 *.code-workspace
 
 .env
+# Built at release time by script/release, never committed to main
+dist

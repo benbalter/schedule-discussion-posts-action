@@ -3,9 +3,9 @@
 A TypeScript GitHub Action that publishes Markdown drafts with front matter
 (`title`, `repository`, `date`, `category`, `body`) as GitHub Discussions once
 their date has passed, then deletes the draft. The [readme](README.md) covers
-setup, front matter, and per-author tokens. There are no releases or tags:
-consumers reference `benbalter/schedule-discussion-posts-action@main`, so every
-push to `main` ships immediately.
+setup, front matter, and per-author tokens. Consumers reference
+`benbalter/schedule-discussion-posts-action@v1`, so a push to `main` ships
+nothing until the next release.
 
 ## Commands
 
@@ -13,29 +13,34 @@ push to `main` ships immediately.
   `npm run format:check`, `npm run lint`, `npm run ci-test` (Jest with
   `--experimental-vm-modules`, since the code is ESM). Node 24 per
   [`.node-version`](.node-version).
-- `npm run bundle` runs `prettier --write .` on the whole repository, then `ncc`
-  builds `src/index.ts` into [`dist/`](dist/). `npm run all` does format, lint,
-  test, and package.
+- `npm run package` builds `src/index.ts` into `dist/` with `ncc`.
+  `npm run bundle` runs `prettier --write .` on the whole repository first, so
+  don't use it in scripts or CI. `npm run all` does format, lint, test, and
+  package.
 - `npm run cron` runs the action locally with `tsx`, reading `INPUT_*` variables
   from a gitignored `.env`. Set `INPUT_DRY_RUN=true` unless you mean to post
   real discussions.
 - [linter.yml](.github/workflows/linter.yml) runs super-linter with Prettier and
   ESLint turned off, since ci.yml owns those.
 
-## dist/ is committed, and it ships
+## Releases: dist/ lives only on tags
 
-[`action.yml`](action.yml) runs `dist/index.js`, and
-[check-dist.yml](.github/workflows/check-dist.yml) ("Check Transpiled
-JavaScript") rebuilds it and fails on any diff. After any change to `src/` or to
-a runtime dependency, including a Renovate bump or lockfile maintenance, run
-`npm run bundle` and commit `dist/` in the same push, or that check goes red and
-`@main` users run stale code.
+[`action.yml`](action.yml) runs `dist/index.js`, but `dist/` is gitignored and
+never committed to `main`. That way Renovate bumps (shared
+`benbalter/renovate-config:instant` preset, automerge on green) need no rebuild,
+and nothing goes stale. CI builds `dist/` before each `uses: ./` step in
+[ci.yml](.github/workflows/ci.yml) and
+[lint-drafts.yml](.github/workflows/lint-drafts.yml).
 
-Renovate (shared `benbalter/renovate-config:instant` preset, automerge on green)
-can't do this for you: `postUpgradeTasks` is disabled on the hosted Renovate
-app, and pushes made with `GITHUB_TOKEN` don't trigger CI, so a bot rebuild
-wouldn't be checked anyway. Rebuild by hand after merging those PRs, as in
-`Rebuild dist/ for the chrono-node bump`.
+To release, run [`script/release vX.Y.Z`](script/release) from a clean,
+up-to-date `main`. It builds `dist/`, commits it on a detached commit on top of
+`main`, tags that `vX.Y.Z`, moves the floating `v1` tag to it, and prints the
+push and `gh release create` commands. The "Release tags" ruleset blocks
+updating or deleting `v*` tags except for admins, so moving `v1` with
+`git push --force` has to come from an admin, which is why the script runs
+locally rather than in Actions. Changes on `main`, including dependency bumps,
+reach users only after a release. `v1.0.0` was the last commit with `dist/` on
+`main`.
 
 ## Architecture
 

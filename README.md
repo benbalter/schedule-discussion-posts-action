@@ -70,10 +70,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: benbalter/schedule-discussion-posts-action@main
+      - uses: benbalter/schedule-discussion-posts-action@v1
         with:
           discussion_token: ${{ secrets.DISCUSSION_TOKEN }}
 ```
+
+Reference the action as `@v1`, which moves to each new `v1.x.y` release. `@main`
+is no longer supported: `main` doesn't contain the built `dist/` bundle the
+action runs, so workflows that still use `@main` will fail until they switch to
+`@v1`.
 
 The Action runs on Node.js 24, so self-hosted runners and GitHub Enterprise
 Server need a runner version that supports `node24` actions.
@@ -192,7 +197,7 @@ jobs:
             **.md
 
       - name: Lint markdown files
-        uses: benbalter/schedule-discussion-posts-action@main
+        uses: benbalter/schedule-discussion-posts-action@v1
         if: steps.changed-markdown-files.outputs.any_changed == 'true'
         with:
           dry_run: true
@@ -245,7 +250,7 @@ steps:
 Example usage:
 
 ```yaml
-- uses: benbalter/schedule-discussion-posts-action@main
+- uses: benbalter/schedule-discussion-posts-action@v1
   id: schedule-posts
   with:
     discussion_token: ${{ secrets.DISCUSSION_TOKEN }}
@@ -286,7 +291,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: benbalter/schedule-discussion-posts-action@main
+      - uses: benbalter/schedule-discussion-posts-action@v1
         with:
           # The default token used when no author is specified
           discussion_token: ${{ secrets.DISCUSSION_TOKEN }}
@@ -319,3 +324,11 @@ If you encounter any issues, please check the following:
 
 Note: The Action will automatically retry failed API requests (up to 3 times
 with exponential backoff) to handle transient network issues.
+
+## Releasing
+
+`dist/` isn't committed to `main`; it's built only for releases. To cut one, run
+`script/release vX.Y.Z` from an up-to-date, clean `main`. It builds `dist/`,
+commits it on top of `main` without moving `main`, tags that commit `vX.Y.Z`,
+moves the floating major tag (`v1`) to it, and prints the `git push` and
+`gh release create` commands to run once you've checked the result.

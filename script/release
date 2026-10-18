@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Builds dist/ and tags a release, without touching main.
+#
+# dist/ isn't committed to main. This script builds it, commits it on top of main's HEAD as a
+# detached commit, tags that commit vX.Y.Z, and moves the floating major tag vX to it.
+# It never pushes: it prints the push commands for you to run.
+#
+# Usage: script/release vX.Y.Z
+
+set -euo pipefail
+
+usage() {
+  echo "Usage: script/release vX.Y.Z (e.g. script/release v1.1.0)" >&2
+  exit 1
+}
+
+[ $# -eq 1 ] || usage
+version="$1"
+[[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || usage
+major="${version%%.*}"
+
+cd "$(git rev-parse --show-toplevel)"
+
+branch="$(git symbolic-ref --quiet --short HEAD || true)"
+if [ "$branch" != "main" ]; then
+  echo "Check out main first (currently on ${branch:-a detached HEAD})." >&2
+  exit 1
+fi
+
+if [ -n "$(git status --porcelain)" ]; then
+  echo "The working tree isn't clean. Commit or stash your changes first." >&2
+  exit 1
+fi
+
+git fetch --quiet --tags origin main
+if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+  echo "main doesn't match origin/main. Pull (or push) first." >&2
+  exit 1
+fi
+
+if git rev-parse --quiet --verify "refs/tags/$version" >/dev/null ||
+  [ -n "$(git ls-remote --tags origin "refs/tags/$version")" ]; then
+  echo "Tag $version already exists." >&2
+  exit 1
+fi
+
+echo "Building dist/..."
+npm ci
+npm run package
+
+if [ ! -f dist/index.js ]; then
+  echo "The build didn't produce dist/index.js." >&2
+  exit 1
+fi
+
+# Commit main's tree plus dist/ using a temporary index, so neither HEAD, main, nor the real
+# index changes. dist/ is in .gitignore, hence add -f.
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "$tmpdir"' EXIT
+export GIT_INDEX_FILE="$tmpdir/index"
+git read-tree HEAD
+git add -f dist
+tree="$(git write-tree)"
+unset GIT_INDEX_FILE
+commit="$(git commit-tree "$tree" -p HEAD -m "Release $version" -m "Built dist/ from $(git rev-parse --short HEAD) on main.")"
+
+git tag -m "$version" "$version" "$commit"
+git tag -f -m "$version" "$major" "$commit"
+
+cat <<EOF
+
+Tagged $version and moved $major to $(git rev-parse --short "$commit") (main is unchanged).
+
+Review it, then push the tags:
+
+  git push origin $version
+  git push --force origin $major
+
+Then publish the release notes:
+
+  gh release create $version --verify-tag --generate-notes
+EOF
