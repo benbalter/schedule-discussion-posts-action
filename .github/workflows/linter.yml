@@ -37,6 +37,13 @@ jobs:
         id: install
         run: npm ci
 
+      # actionlint checks that `uses: ./` points at an action whose
+      # dist/index.js exists. dist/ isn't committed (script/release builds it
+      # for tags), so build it here. FILTER_REGEX_EXCLUDE keeps it unlinted.
+      - name: Build dist/
+        id: build
+        run: npm run package
+
       - name: Lint Codebase
         id: super-linter
         uses: super-linter/super-linter/slim@v9
