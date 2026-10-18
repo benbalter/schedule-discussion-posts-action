@@ -1,0 +1,5 @@
+# shfmt (run by super-linter) reads indentation from here and defaults to tabs.
+# script/release matches the two-space style of the sibling actions' copies.
+[script/**]
+indent_style = space
+indent_size = 2
